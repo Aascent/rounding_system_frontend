@@ -1,0 +1,26 @@
+{
+  "name": "@smart-rounding/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "test": "npm run build && node --test dist/**/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.0.3",
+    "@nestjs/core": "12.0.3",
+    "@nestjs/platform-express": "12.0.3",
+    "@smart-rounding/contracts": "0.1.0",
+    "helmet": "8.3.0",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "12.0.0",
+    "@types/express": "5.0.6"
+  }
+}

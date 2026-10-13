@@ -1,0 +1,31 @@
+{
+  "name": "smart-rounding-compliance-platform",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @smart-rounding/contracts && npm run build --workspace @smart-rounding/api && npm run build --workspace @smart-rounding/web",
+    "dev": "npm run build --workspace @smart-rounding/contracts && npm run dev --workspace @smart-rounding/web",
+    "dev:api": "npm run build --workspace @smart-rounding/contracts && npm run dev --workspace @smart-rounding/api",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "test": "npm run test --workspace @smart-rounding/api",
+    "typecheck": "npm run build --workspace @smart-rounding/contracts && npm run typecheck --workspace @smart-rounding/api && npm run typecheck --workspace @smart-rounding/web",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.4.1",
+    "eslint": "10.0.1",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.69.0"
+  }
+}

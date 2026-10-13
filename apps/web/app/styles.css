@@ -1,0 +1,180 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Design tokens for the Smart Rounding synthetic UI.
+ * Light-only healthcare palette mapped onto shadcn semantic token names so the
+ * component layer in components/ui/* stays framework-standard.
+ */
+:root {
+  --radius: 0.625rem;
+
+  --background: #f4f7f6;
+  --foreground: #132b2a;
+
+  --card: #ffffff;
+  --card-foreground: #132b2a;
+
+  --popover: #ffffff;
+  --popover-foreground: #132b2a;
+
+  --primary: #0d6b5d;
+  --primary-foreground: #ffffff;
+  --primary-strong: #084f46;
+
+  --secondary: #e4f2ee;
+  --secondary-foreground: #084f46;
+
+  --muted: #eef3f1;
+  --muted-foreground: #607370;
+
+  --accent: #e4f2ee;
+  --accent-foreground: #084f46;
+
+  --destructive: #a94032;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #f9e4e1;
+
+  --warning: #9a641b;
+  --warning-foreground: #ffffff;
+  --warning-soft: #fff3df;
+
+  --success: #0d6b5d;
+  --success-soft: #e5f1ed;
+
+  --border: #d9e1dc;
+  --input: #cdd8d2;
+  --ring: #6bb7a8;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans:
+    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  /*
+   * Reserve the scrollbar gutter permanently so the page width does not change
+   * when Radix (Select / Dialog) locks background scroll on open. Without this
+   * the centered layout shifts left by the scrollbar width while a menu is open.
+   */
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  /*
+   * react-remove-scroll (used by Radix Select/Dialog) also pads the body to
+   * offset the removed scrollbar. With a stable gutter that space is already
+   * reserved, so cancel the extra padding to keep the layout perfectly still.
+   */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1 {
+    letter-spacing: -0.04em;
+  }
+
+  h2,
+  h3 {
+    letter-spacing: -0.012em;
+  }
+
+  /*
+   * Tailwind v4 Preflight drops the historic `cursor: pointer` on <button>.
+   * Restore it for interactive controls that aren't disabled.
+   */
+  button:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="option"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+    border-radius: 999px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
