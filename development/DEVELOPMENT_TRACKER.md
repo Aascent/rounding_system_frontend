@@ -231,3 +231,9 @@ These are tracked in detail in `docs/REQUIREMENTS.md` and currently block reliab
 - Removed the per-Cell `useChartHover`/`hoverCellProps` wiring from `RankedBarChart`, `StackedSignalChart` and `FacilityLoadChart` in `apps/web/components/ui/chart.tsx`, reverting their bars to plain flat fills (no per-row `Cell` needed at all for the two stacked/grouped charts). The default recharts row-cursor highlight and tooltip on hover are untouched - only the dim-other-bars/brighten-hovered-bar effect is gone.
 - `DonutChart` keeps the hover effect exactly as before (dim the other wedges, pop the hovered one, tooltip on top) - it was never the problem.
 - Verified live: hovering rows in the Rounding queue chart now shows only the tooltip, all bars stay the same color; hovering a donut wedge still dims/highlights/pops as expected. `npm run validate` green (48/48 tests, clean build, lint and format clean).
+
+## Toolchain pinning (2026-10-15)
+
+- Local Node was 24.11.0, below the `engines` floor (`>=24.15.0`) that CI (`.github/workflows/quality.yml`) and both Dockerfiles pin to 24.15.0. Installed and activated 24.15.0 via nvm-windows, and added `.nvmrc` (`24.15.0`) so contributors' version managers pick it up.
+- `apps/web` dependencies used caret ranges, while `apps/api` and `packages/contracts` pin exact versions. Pinned every web dependency to its already-locked version (no resolved version changed) and added `.npmrc` `save-exact=true` so future `npm install <pkg>` saves exact versions.
+- Validation: `npm run validate` (format check, lint, typecheck, tests, build) passed on Node 24.15.0.
