@@ -3,7 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  output: "standalone",
+  // Standalone output feeds the Cloud Run Dockerfile. Vercel packages the app
+  // itself and its build adapter fails on standalone output, so skip it there.
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   async headers() {
     return [
       {
