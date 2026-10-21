@@ -13,7 +13,7 @@ void test("resolves active synthetic identities", () => {
     loadEnvironment({ DATA_MODE: "synthetic", AUTH_MODE: "synthetic" }),
   );
   assert.equal(principal.role, "PHYSICIAN");
-  assert.equal(principal.providerId, "synthetic-provider-001");
+  assert.equal(principal.providerId, "provider-001");
 });
 void test("rejects missing or unknown synthetic identities", () => {
   const environment = loadEnvironment({

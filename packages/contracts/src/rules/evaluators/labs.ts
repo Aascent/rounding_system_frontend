@@ -11,6 +11,6 @@ export const labsEvaluator: SignalEvaluator = ({ input }) =>
         category: "LABS" as const,
         severity: critical ? ("CRITICAL" as const) : ("WARNING" as const),
         label: critical ? "Critical lab flag" : "Abnormal lab flag",
-        evidence: `${f.analyte} ${f.value} (${f.flag} flag).`,
+        evidence: `${f.analyte} ${f.value} is ${critical ? "critically " : ""}${f.flag.startsWith("H") ? "high" : "low"} (lab flag ${f.flag}).`,
       };
     });

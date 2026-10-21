@@ -17,14 +17,15 @@ export function complianceTone(status: string): StatusTone {
   return "success";
 }
 
+/** Plain-language urgency bands, used everywhere a priority is shown. */
 export const priorityLabels: Record<string, string> = {
-  HIGH: "High",
-  MEDIUM: "Medium",
-  LOW: "Low",
+  HIGH: "See first",
+  MEDIUM: "See today",
+  LOW: "Routine",
 };
 
 export const complianceLabels: Record<string, string> = {
   OVERDUE: "Overdue",
   DUE_SOON: "Due soon",
-  ON_TRACK: "On track",
+  ON_TRACK: "On schedule",
 };

@@ -240,6 +240,35 @@ export type StackBarDatum = Readonly<{
 }>;
 
 /** Horizontal stacked bar: a neutral base plus a highlighted "critical" segment. */
+/** A bar-end total label, drawn only on the segment `isEnd` selects. */
+function totalAfter(
+  data: readonly StackBarDatum[],
+  isEnd: (d: StackBarDatum) => boolean,
+) {
+  function TotalLabel(props: {
+    x?: number | string | undefined;
+    y?: number | string | undefined;
+    width?: number | string | undefined;
+    height?: number | string | undefined;
+    value?: unknown;
+  }) {
+    // `index` counts only rendered segments, so look the row up by label.
+    const d = data.find((row) => row.label === props.value);
+    if (!d || !isEnd(d)) return null;
+    return (
+      <text
+        x={Number(props.x) + Number(props.width) + 6}
+        y={Number(props.y) + Number(props.height) / 2}
+        dominantBaseline="central"
+        className="fill-foreground text-xs font-semibold"
+      >
+        {d.total}
+      </text>
+    );
+  }
+  return TotalLabel;
+}
+
 export function StackedSignalChart({
   data,
   height,
@@ -269,7 +298,7 @@ export function StackedSignalChart({
               active={active}
               label={label}
               payload={payload?.map((p) => ({
-                name: p.name === "critical" ? "Critical" : "Other signals",
+                name: p.name === "critical" ? "Critical" : "Not critical",
                 value: p.value as number,
                 color:
                   p.name === "critical" ? TONE_VAR.danger : TONE_VAR.primary,
@@ -284,7 +313,13 @@ export function StackedSignalChart({
           fill={TONE_VAR.primary}
           radius={[6, 0, 0, 6]}
           maxBarSize={22}
-        />
+        >
+          {/* The total sits after whichever segment ends the bar. */}
+          <LabelList
+            dataKey="label"
+            content={totalAfter(data, (d) => d.critical === 0)}
+          />
+        </Bar>
         <Bar
           isAnimationActive={false}
           dataKey="critical"
@@ -294,9 +329,8 @@ export function StackedSignalChart({
           maxBarSize={22}
         >
           <LabelList
-            dataKey="total"
-            position="right"
-            className="fill-foreground text-xs font-semibold"
+            dataKey="label"
+            content={totalAfter(data, (d) => d.critical > 0)}
           />
         </Bar>
       </BarChart>
@@ -315,69 +349,87 @@ export function FacilityLoadChart({
   height,
 }: Readonly<{ data: readonly GroupBarDatum[]; height?: number }>) {
   return (
-    <ChartFrame height={height ?? Math.max(200, data.length * 56 + 24)}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 4, right: 32, bottom: 4, left: 8 }}
-        barGap={4}
-      >
-        <XAxis type="number" hide allowDecimals={false} />
-        <YAxis
-          type="category"
-          dataKey="label"
-          width={150}
-          tickLine={false}
-          axisLine={false}
-          tick={AXIS_TICK}
-          interval={0}
-        />
-        <Tooltip
-          cursor={{ fill: CHART_GRID, opacity: 0.6 }}
-          content={({ active, payload, label }) => (
-            <ChartTooltip
-              active={active}
-              label={label}
-              payload={payload?.map((p) => ({
-                name:
-                  p.name === "highPriority" ? "High priority" : "Candidates",
-                value: p.value as number,
-                color:
-                  p.name === "highPriority"
-                    ? TONE_VAR.danger
-                    : TONE_VAR.primary,
-              }))}
-            />
-          )}
-        />
-        <Bar
-          isAnimationActive={false}
-          dataKey="patients"
-          fill={TONE_VAR.primary}
-          radius={[0, 5, 5, 0]}
-          maxBarSize={16}
+    <div>
+      <ChartFrame height={height ?? Math.max(200, data.length * 56 + 24)}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 4, right: 32, bottom: 4, left: 8 }}
+          barGap={4}
         >
-          <LabelList
+          <XAxis type="number" hide allowDecimals={false} />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={150}
+            tickLine={false}
+            axisLine={false}
+            tick={AXIS_TICK}
+            interval={0}
+          />
+          <Tooltip
+            cursor={{ fill: CHART_GRID, opacity: 0.6 }}
+            content={({ active, payload, label }) => (
+              <ChartTooltip
+                active={active}
+                label={label}
+                payload={payload?.map((p) => ({
+                  name:
+                    p.name === "highPriority" ? "See first" : "Patients today",
+                  value: p.value as number,
+                  color:
+                    p.name === "highPriority"
+                      ? TONE_VAR.danger
+                      : TONE_VAR.primary,
+                }))}
+              />
+            )}
+          />
+          <Bar
+            isAnimationActive={false}
             dataKey="patients"
-            position="right"
-            className="fill-foreground text-xs font-semibold"
-          />
-        </Bar>
-        <Bar
-          isAnimationActive={false}
-          dataKey="highPriority"
-          fill={TONE_VAR.danger}
-          radius={[0, 5, 5, 0]}
-          maxBarSize={16}
-        >
-          <LabelList
+            fill={TONE_VAR.primary}
+            radius={[0, 5, 5, 0]}
+            maxBarSize={16}
+          >
+            <LabelList
+              dataKey="patients"
+              position="right"
+              className="fill-foreground text-xs font-semibold"
+            />
+          </Bar>
+          <Bar
+            isAnimationActive={false}
             dataKey="highPriority"
-            position="right"
-            className="fill-muted-foreground text-xs font-semibold"
+            fill={TONE_VAR.danger}
+            radius={[0, 5, 5, 0]}
+            maxBarSize={16}
+          >
+            <LabelList
+              dataKey="highPriority"
+              position="right"
+              className="fill-muted-foreground text-xs font-semibold"
+            />
+          </Bar>
+        </BarChart>
+      </ChartFrame>
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+        <li className="flex items-center gap-1.5">
+          <span
+            className="size-2.5 rounded-full"
+            style={{ background: TONE_VAR.primary }}
           />
-        </Bar>
-      </BarChart>
-    </ChartFrame>
+          Patients today
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span
+            className="size-2.5 rounded-full"
+            style={{ background: TONE_VAR.danger }}
+          />
+          See first
+        </li>
+      </ul>
+    </div>
   );
 }
 
@@ -401,7 +453,7 @@ export function DonutChart({
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   const hover = useChartHover();
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
       <div className="relative shrink-0" style={{ width: height, height }}>
         {/*
          * Rendered before the chart (not just positioned under it) so it
@@ -461,7 +513,7 @@ export function DonutChart({
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <ul className="grid gap-1.5 text-sm">
+      <ul className="grid min-w-[10rem] flex-1 gap-1.5 text-sm">
         {segments.map((s, i) => (
           <li
             key={i}
@@ -477,8 +529,10 @@ export function DonutChart({
               className="size-2.5 rounded-full"
               style={{ background: TONE_VAR[s.tone] }}
             />
-            <span className="text-muted-foreground">{s.label}</span>
-            <span className="ml-auto pl-6 font-semibold tabular-nums">
+            <span className="whitespace-nowrap text-muted-foreground">
+              {s.label}
+            </span>
+            <span className="ml-auto pl-4 font-semibold tabular-nums">
               {s.value}
             </span>
           </li>

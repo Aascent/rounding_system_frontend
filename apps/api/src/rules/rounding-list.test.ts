@@ -4,6 +4,7 @@ import {
   queryRoundingList,
   roundingScopeForRole,
   summarizeRoundingScope,
+  syntheticCensus,
   syntheticRoundingCandidates,
 } from "@smart-rounding/contracts";
 
@@ -11,13 +12,15 @@ const TOTAL = syntheticRoundingCandidates.length;
 
 void test("roundingScopeForRole splits the list by physician-required status", () => {
   assert.deepEqual(roundingScopeForRole("PHYSICIAN"), {
+    todayOnly: true,
     physicianActionRequired: true,
   });
   assert.deepEqual(roundingScopeForRole("NURSE_PRACTITIONER"), {
+    todayOnly: true,
     physicianActionRequired: false,
   });
-  // Admin (and any future role) gets no hard restriction.
-  assert.deepEqual(roundingScopeForRole("ADMIN"), {});
+  // Admin (and any future role) sees all of today's list.
+  assert.deepEqual(roundingScopeForRole("ADMIN"), { todayOnly: true });
 });
 
 void test("queryRoundingList applies scope as a hard AND with user filters", () => {
@@ -28,7 +31,11 @@ void test("queryRoundingList applies scope as a hard AND with user filters", () 
   // unlike `.items`, so it is safe to compare against the whole dataset.
   const physicianOnly = queryRoundingList({ pageSize: TOTAL }, physicianScope);
   const npOnly = queryRoundingList({ pageSize: TOTAL }, npScope);
-  const unscoped = queryRoundingList({ pageSize: TOTAL });
+  const unscoped = queryRoundingList({ pageSize: TOTAL }, { todayOnly: true });
+  // With no scope at all the query spans the whole census; the visit filter
+  // narrows it back to today's list.
+  assert.equal(queryRoundingList({ visit: "TODAY" }).total, TOTAL);
+  assert.ok(queryRoundingList({}).total > TOTAL);
   const expectedPhysicianCount = syntheticRoundingCandidates.filter(
     (p) => p.physicianActionRequired,
   ).length;
@@ -78,7 +85,8 @@ void test("summarizeRoundingScope totals and facilities match the scoped query",
   );
   assert.equal(summary.totals.facilities, summary.facilities.length);
 
-  // The empty scope's totals equal the whole dataset.
+  // The empty scope spans the census; its today count is today's list.
   const all = summarizeRoundingScope();
-  assert.equal(all.totals.total, TOTAL);
+  assert.equal(all.totals.total, syntheticCensus.total);
+  assert.equal(all.totals.today, TOTAL);
 });

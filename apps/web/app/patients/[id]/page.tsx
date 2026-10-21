@@ -5,8 +5,13 @@ import { applicationData } from "../../../lib/application-data";
 import { resolveBackLink } from "@/lib/back-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Kicker, PageContainer, SyntheticBadge } from "@/components/page";
-import { complianceTone, priorityTone } from "@/lib/status";
+import { Kicker, PageContainer } from "@/components/page";
+import {
+  complianceLabels,
+  complianceTone,
+  priorityLabels,
+  priorityTone,
+} from "@/lib/status";
 import { VisitNotes } from "./visit-notes";
 
 // Pre-render only the hand-authored scenario patients; the ~975 generated
@@ -71,7 +76,6 @@ export default async function PatientPage({
         >
           ← Back to {backLink.label}
         </Link>
-        <SyntheticBadge />
       </nav>
 
       <header className="flex flex-col gap-5 py-10 sm:flex-row sm:items-end sm:justify-between">
@@ -86,10 +90,10 @@ export default async function PatientPage({
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge tone={priorityTone(patient.priority)} dot>
-            {patient.priority} priority
+            {priorityLabels[patient.priority]}
           </Badge>
           <Badge tone={complianceTone(patient.complianceStatus)} dot>
-            {patient.complianceStatus.replace("_", " ")}
+            {complianceLabels[patient.complianceStatus]}
           </Badge>
           <Badge tone="outline">
             {patient.classification === "LONG_TERM"
@@ -104,7 +108,7 @@ export default async function PatientPage({
       </header>
 
       <aside className="mb-4 rounded-xl border border-dashed border-border bg-muted/40 px-5 py-3.5 text-sm">
-        <strong className="text-muted-foreground">Synthetic scenario:</strong>{" "}
+        <strong className="text-muted-foreground">Scenario:</strong>{" "}
         {patient.scenario}
       </aside>
 
@@ -341,7 +345,7 @@ export default async function PatientPage({
           <CardContent className="pt-3">
             <dl>
               <DescRow term="Current status">
-                {patient.complianceStatus.replace("_", " ")}
+                {complianceLabels[patient.complianceStatus]}
               </DescRow>
               <DescRow term="Detail">{patient.complianceDetail}</DescRow>
               <DescRow term="Last physician visit">
@@ -365,9 +369,8 @@ export default async function PatientPage({
       <aside className="border-l-4 border-primary bg-secondary px-5 py-4">
         <strong>Illustrative information only</strong>
         <p className="mt-1 text-[#37524c]">
-          Thresholds, keywords and classification heuristics are placeholders
-          for the synthetic preview — not validated clinical rules or medical
-          advice.
+          Thresholds, keywords and classification heuristics are illustrative
+          configuration — not validated clinical rules or medical advice.
         </p>
       </aside>
     </PageContainer>

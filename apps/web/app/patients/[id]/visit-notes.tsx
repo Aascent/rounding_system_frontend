@@ -172,8 +172,7 @@ export function VisitNotes({ patientId }: Readonly<{ patientId: string }>) {
           </p>
         )}
         <p className="mt-3 text-[0.72rem] text-muted-foreground">
-          Stored in this browser only for the synthetic preview — not synced to
-          a backend or other devices.
+          Saved in this browser only — not synced to other devices.
         </p>
       </div>
 

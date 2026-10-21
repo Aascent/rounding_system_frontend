@@ -15,7 +15,6 @@ import {
   MetricGrid,
   PageContainer,
   PageHeading,
-  SyntheticBadge,
 } from "@/components/page";
 import {
   complianceLabels,
@@ -23,7 +22,10 @@ import {
   priorityLabels,
   priorityTone,
 } from "@/lib/status";
-import type { RoundingPatient } from "@smart-rounding/contracts";
+import {
+  needsVisitToday,
+  type RoundingPatient,
+} from "@smart-rounding/contracts";
 import type { RoundingListPage } from "@/lib/application-data";
 import { backLinkQuery } from "@/lib/back-link";
 import { RoundingFilters, type RoundingFilterValues } from "./rounding-filters";
@@ -56,6 +58,7 @@ export function RoundingListView({
   pageSize,
   querySansPage,
   scopeLabel = "in your list",
+  visitFor,
 }: Readonly<{
   title: string;
   description: string;
@@ -69,6 +72,8 @@ export function RoundingListView({
    * caseload) vs. "in the NP caseload" (oversight into someone else's).
    */
   scopeLabel?: string;
+  /** Whose visits the "Visit today" marker shows (the viewer's role). */
+  visitFor?: "PHYSICIAN" | "NURSE_PRACTITIONER";
 }>) {
   const linkCls = "font-bold text-primary underline-offset-2 hover:underline";
   const { totals } = pageData;
@@ -83,29 +88,28 @@ export function RoundingListView({
         kicker="Provider dashboard"
         title={title}
         description={description}
-        actions={<SyntheticBadge />}
       />
 
       <MetricGrid aria-label="Rounding summary">
         <MetricCard
           label={scopeLabelCapitalized}
           value={totals.total}
-          hint={`Across ${totals.facilities} facilities`}
+          hint={`Across ${totals.facilities} ${totals.facilities === 1 ? "facility" : "facilities"}`}
         />
         <MetricCard
-          label="High priority"
-          value={totals.highPriority}
-          hint="Review first"
+          label="Need a visit today"
+          value={totals.today}
+          hint={`${totals.highPriority} to see first`}
         />
         <MetricCard
-          label="Compliance overdue"
+          label="Visits overdue"
           value={totals.overdue}
-          hint="Physician interval missed"
+          hint="Past the required visit window"
         />
         <MetricCard
-          label="Carried forward"
+          label="Carried over"
           value={totals.carryForward}
-          hint="Unseen from prior day"
+          hint="Not seen yesterday"
         />
       </MetricGrid>
 
@@ -115,9 +119,9 @@ export function RoundingListView({
       >
         <div className="flex flex-col gap-2 border-b border-border p-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Kicker className="mb-1">Rounding list</Kicker>
+            <Kicker className="mb-1">Caseload</Kicker>
             <h2 id="rounding-list-heading" className="text-xl font-semibold">
-              Patients requiring review
+              Residents
             </h2>
           </div>
           <span className="text-sm text-muted-foreground">
@@ -138,8 +142,8 @@ export function RoundingListView({
             <TableHeader>
               <TableRow className="border-0">
                 <TableHead scope="col">Patient</TableHead>
-                <TableHead scope="col">Priority</TableHead>
-                <TableHead scope="col">Compliance</TableHead>
+                <TableHead scope="col">Urgency</TableHead>
+                <TableHead scope="col">Visit timing</TableHead>
                 <TableHead scope="col">Class / signals</TableHead>
                 <TableHead scope="col">Payer / status</TableHead>
                 <TableHead scope="col">Last physician visit</TableHead>
@@ -166,9 +170,14 @@ export function RoundingListView({
                     <span className="mt-1 block text-[0.78rem] text-muted-foreground">
                       {patient.facility} {"\u00B7"} Room {patient.room}
                     </span>
+                    {needsVisitToday(patient, visitFor) && (
+                      <span className="mt-1 block w-max rounded-md bg-primary/10 px-1.5 py-0.5 text-[0.72rem] font-bold text-primary">
+                        Visit today
+                      </span>
+                    )}
                     {patient.carryForward && (
                       <em className="mt-1 block w-max rounded-md bg-warning-soft px-1.5 py-0.5 text-[0.72rem] font-bold not-italic text-warning">
-                        Carried forward
+                        Carried over
                       </em>
                     )}
                   </TableCell>
@@ -223,7 +232,7 @@ export function RoundingListView({
           <div className="px-6 py-16 text-center">
             <h3 className="text-lg font-semibold">No matching patients</h3>
             <p className="mt-2 text-muted-foreground">
-              No synthetic records match the current filters.
+              No patients match the current filters.
             </p>
             <Link
               href={basePath}
@@ -254,9 +263,6 @@ export function RoundingListView({
           Decision support only. Clinicians remain responsible for care
           decisions.
         </p>
-        <span className="font-bold text-primary">
-          No PHI {"\u00B7"} Synthetic mode
-        </span>
       </footer>
     </PageContainer>
   );

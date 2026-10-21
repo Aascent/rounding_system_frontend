@@ -17,6 +17,6 @@ export const keywordsEvaluator: SignalEvaluator = ({ input, cfg }) => {
     category: "KEYWORD" as const,
     severity: k.severity,
     label: `Note keyword: “${k.phrase}”`,
-    evidence: `Clinical note contains “${k.phrase}” (${k.category}).`,
+    evidence: `Nursing note mentions “${k.phrase}” (${k.category}).`,
   }));
 };

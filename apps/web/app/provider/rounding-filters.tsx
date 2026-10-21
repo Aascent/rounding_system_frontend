@@ -13,6 +13,7 @@ export type RoundingFilterValues = Readonly<{
   facility: string;
   compliance: string;
   classification: string;
+  visit: string;
   sort: string;
 }>;
 
@@ -22,6 +23,7 @@ const DEFAULTS: RoundingFilterValues = {
   facility: "ALL",
   compliance: "ALL",
   classification: "ALL",
+  visit: "ALL",
   sort: "URGENCY",
 };
 
@@ -67,6 +69,7 @@ export function RoundingFilters({
     values.facility !== "ALL" ||
     values.compliance !== "ALL" ||
     values.classification !== "ALL" ||
+    values.visit !== "ALL" ||
     values.sort !== "URGENCY";
 
   return (
@@ -84,16 +87,28 @@ export function RoundingFilters({
         />
       </Label>
       <Label>
-        <span>Priority</span>
+        <span>Visit</span>
         <SelectField
-          ariaLabel="Priority"
+          ariaLabel="Visit"
+          value={values.visit}
+          onValueChange={(v) => apply({ visit: v })}
+          options={[
+            { value: "ALL", label: "All residents" },
+            { value: "TODAY", label: "Needs a visit today" },
+          ]}
+        />
+      </Label>
+      <Label>
+        <span>Urgency</span>
+        <SelectField
+          ariaLabel="Urgency"
           value={values.priority}
           onValueChange={(v) => apply({ priority: v })}
           options={[
-            { value: "ALL", label: "All priorities" },
-            { value: "HIGH", label: "High" },
-            { value: "MEDIUM", label: "Medium" },
-            { value: "LOW", label: "Low" },
+            { value: "ALL", label: "All" },
+            { value: "HIGH", label: "See first" },
+            { value: "MEDIUM", label: "See today" },
+            { value: "LOW", label: "Routine" },
           ]}
         />
       </Label>
@@ -119,7 +134,7 @@ export function RoundingFilters({
             { value: "ALL", label: "All statuses" },
             { value: "OVERDUE", label: "Overdue" },
             { value: "DUE_SOON", label: "Due soon" },
-            { value: "ON_TRACK", label: "On track" },
+            { value: "ON_TRACK", label: "On schedule" },
           ]}
         />
       </Label>
@@ -144,7 +159,7 @@ export function RoundingFilters({
           onValueChange={(v) => apply({ sort: v })}
           options={[
             { value: "URGENCY", label: "Urgency score" },
-            { value: "PRIORITY", label: "Priority band" },
+            { value: "PRIORITY", label: "Urgency band" },
             { value: "NAME", label: "Patient name" },
             { value: "ADMISSION", label: "Days since admission" },
             { value: "LAST_VISIT", label: "Oldest physician visit" },

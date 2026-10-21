@@ -41,15 +41,19 @@ export class ProviderService {
   /**
    * `role` is the authenticated caller's role (from the auth guard, never
    * from client input) and hard-scopes the result to the patients that role
-   * is responsible for — see {@link roundingScopeForRole}. Omitting it
-   * returns the unscoped, facility-wide list.
+   * is responsible for — see {@link roundingScopeForRole}; `userId` narrows it
+   * to that provider's own share of today's list. Omitting the role
+   * returns the whole of today's list.
    */
   roundingList(
     query: RoundingListQuery = {},
     role?: UserRole,
+    userId?: string,
   ): RoundingListPage {
     this.assertSyntheticMode();
-    const scope = role ? roundingScopeForRole(role) : {};
+    const scope = role
+      ? roundingScopeForRole(role, userId)
+      : { todayOnly: true };
     const { facilities, totals } = summarizeRoundingScope(scope);
     return { ...queryRoundingList(query, scope), facilities, totals };
   }

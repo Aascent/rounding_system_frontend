@@ -22,6 +22,9 @@ export {
   featuredPatientIds,
   roundingFacilities,
   getSyntheticPatient,
+  syntheticCensus,
+  syntheticResidents,
+  isOnTodaysList,
   syntheticRoundingCandidates,
   buildQueueInsights,
   buildDashboardTotals,
@@ -30,6 +33,8 @@ export {
 export {
   queryRoundingList,
   roundingScopeForRole,
+  caseloadScopeForUser,
+  needsVisitToday,
   summarizeRoundingScope,
   patientsInScope,
   type RoundingListResult,
@@ -40,6 +45,8 @@ export {
 export {
   buildNpRoster,
   getNpRosterEntry,
+  facilityCoverage,
+  type FacilityCoverage,
   type NpRosterEntry,
 } from "./rules/np-roster.js";
 export * from "./rounding-query.js";

@@ -33,13 +33,14 @@ export default async function NpPatientsPage({
   return (
     <RoundingListView
       title={`${np.name}'s patients`}
-      description={`Every patient in ${np.name}'s panel - all priority, compliance and classification cases, ordered by clinical urgency.`}
+      description={`Every resident in ${np.name}'s caseload. Those who need an NP visit today are marked.`}
       basePath={`/provider/np-list/${npId}`}
       pageData={pageData}
       filters={parsed.filters}
       pageSize={parsed.pageSize}
       querySansPage={parsed.querySansPage}
-      scopeLabel={`in ${np.name}'s panel`}
+      scopeLabel={`in ${np.name}'s caseload`}
+      visitFor="NURSE_PRACTITIONER"
     />
   );
 }

@@ -8,7 +8,7 @@ import {
 } from "@smart-rounding/contracts";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PageContainer, PageHeading, SyntheticBadge } from "@/components/page";
+import { PageContainer, PageHeading } from "@/components/page";
 import {
   KeywordForm,
   UserForm,
@@ -79,7 +79,7 @@ export function AdminWorkspace({
           : c,
       ),
     );
-    setNotice(`${item.label} updated in synthetic memory.`);
+    setNotice(`${item.label} updated.`);
   }
 
   function toggleUserStatus(item: ManagedUser) {
@@ -90,14 +90,14 @@ export function AdminWorkspace({
           : c,
       ),
     );
-    setNotice(`${item.name} status changed in synthetic memory.`);
+    setNotice(`${item.name} status changed.`);
   }
 
   function changeUserRole(item: ManagedUser, role: ManagedUser["role"]) {
     setUsers((current) =>
       current.map((c) => (c.id === item.id ? { ...c, role } : c)),
     );
-    setNotice(`${item.name} role changed in synthetic memory.`);
+    setNotice(`${item.name} role changed.`);
   }
 
   function toggleKeyword(id: string) {
@@ -122,7 +122,7 @@ export function AdminWorkspace({
       providerId: null,
     };
     setUsers((current) => [...current, user]);
-    setNotice(`${user.name} created in synthetic memory.`);
+    setNotice(`${user.name} created.`);
     setModal(null);
     return true;
   }
@@ -147,7 +147,7 @@ export function AdminWorkspace({
         active: true,
       },
     ]);
-    setNotice(`${values.keyword} added to the synthetic keyword library.`);
+    setNotice(`${values.keyword} added to the keyword library.`);
     setModal(null);
     return true;
   }
@@ -168,9 +168,7 @@ export function AdminWorkspace({
       validationRejects: 0,
       errors: 0,
     });
-    setNotice(
-      "Synthetic manual sync started. No external system was contacted.",
-    );
+    setNotice("Manual sync started.");
   }
 
   return (
@@ -178,8 +176,7 @@ export function AdminWorkspace({
       <PageHeading
         kicker="Administration"
         title="Operations and controls"
-        description="Manage illustrative thresholds, users, audit events, and synchronization status."
-        actions={<SyntheticBadge />}
+        description="Manage thresholds, users, audit events, and synchronization status."
       />
       {notice && (
         <p
@@ -229,7 +226,7 @@ export function AdminWorkspace({
       {modal === "user" && (
         <Modal
           title="Add user"
-          description="Create a synthetic account and assign its initial role."
+          description="Create an account and assign its initial role."
           onClose={() => setModal(null)}
         >
           {notice && (
@@ -243,7 +240,7 @@ export function AdminWorkspace({
       {modal === "keyword" && (
         <Modal
           title="Add keyword"
-          description="Add a synthetic phrase to the review library."
+          description="Add a phrase to the review library."
           onClose={() => setModal(null)}
         >
           {notice && (

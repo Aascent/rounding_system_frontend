@@ -120,11 +120,11 @@ export const illustrativeRuleConfig: RuleConfig = {
 };
 
 export const SIGNAL_CATEGORY_LABELS: Record<string, string> = {
-  COMPLIANCE: "Compliance timing",
+  COMPLIANCE: "Visit due or overdue",
   NEW_ADMISSION: "New admission",
-  VITALS: "Abnormal vitals",
-  LABS: "Critical / abnormal labs",
-  KEYWORD: "Clinical-note keywords",
+  VITALS: "Abnormal vital signs",
+  LABS: "Abnormal lab results",
+  KEYWORD: "Concerning nursing notes",
   WEIGHT: "Weight change",
-  DATA_QUALITY: "Data quality",
+  DATA_QUALITY: "Missing or outdated data",
 };

@@ -5,8 +5,11 @@ import {
   type RoundingSort,
 } from "../rounding-query.js";
 import type { RoundingPatient, UserRole } from "../schemas.js";
-import { assignedNpIdByPatientId } from "./np-roster.js";
-import { syntheticRoundingCandidates } from "./synthesize.js";
+import {
+  assignedNpIdByPatientId,
+  assignedPhysicianIdByPatientId,
+} from "./np-roster.js";
+import { isOnTodaysList, syntheticResidents } from "./synthesize.js";
 
 export type RoundingListResult = Paginated<RoundingPatient> &
   Readonly<{ filtered: number }>;
@@ -18,43 +21,99 @@ export type RoundingListResult = Paginated<RoundingPatient> &
  * Multiple fields combine with AND.
  */
 export type RoundingListScope = Readonly<{
+  /** Only residents who need a visit today (see `isOnTodaysList`). */
+  todayOnly?: boolean;
   physicianActionRequired?: boolean;
-  /** Restricts to one nurse practitioner's real patient panel — see `np-roster.ts`. */
+  /** Restricts to one NP's caseload — see `np-roster.ts`. */
   assignedNpId?: string;
+  /** Restricts to one attending physician's caseload — see `np-roster.ts`. */
+  assignedPhysicianId?: string;
+  /**
+   * Whose visits "today" means inside a caseload: a physician's caseload
+   * also holds residents only the NP needs to see today, and vice versa.
+   */
+  visitFor?: "PHYSICIAN" | "NURSE_PRACTITIONER";
 }>;
 
+/** Whether `patient` needs a visit today from a provider of `role` (any role if omitted). */
+export function needsVisitToday(
+  patient: RoundingPatient,
+  role?: RoundingListScope["visitFor"],
+): boolean {
+  if (!isOnTodaysList(patient)) return false;
+  if (role === "PHYSICIAN") return patient.physicianActionRequired;
+  if (role === "NURSE_PRACTITIONER") return !patient.physicianActionRequired;
+  return true;
+}
+
 /**
- * Maps a provider role to the patients they are responsible for rounding on:
- * physicians take the patients whose signals require a physician visit
- * (critical findings, new admissions, the 30-day long-term rule); nurse
- * practitioners take the remainder, which they may see under protocol. Admins
- * (and any other role) get no hard scope. This keeps the split deterministic
- * and derived from the same rule evidence the rest of the app already shows,
- * rather than a separate, unvalidated assignment table.
+ * Today's rounding list for a provider role: physicians take the patients
+ * whose signals require a physician visit (critical findings, new admissions,
+ * the long-term physician interval); nurse practitioners take the remainder,
+ * which they may see under protocol. Admins (and any other role) see the
+ * whole of today's list. The split is deterministic and derived from the same
+ * rule evidence the rest of the app already shows.
+ *
+ * `userId`, when given, narrows that to the signed-in provider's own
+ * residents (see `np-roster.ts`); without it the scope is role-wide.
  */
-export function roundingScopeForRole(role: UserRole): RoundingListScope {
-  if (role === "PHYSICIAN") return { physicianActionRequired: true };
-  if (role === "NURSE_PRACTITIONER") return { physicianActionRequired: false };
-  return {};
+export function roundingScopeForRole(
+  role: UserRole,
+  userId?: string,
+): RoundingListScope {
+  if (role === "PHYSICIAN")
+    return {
+      todayOnly: true,
+      physicianActionRequired: true,
+      ...(userId ? { assignedPhysicianId: userId } : {}),
+    };
+  if (role === "NURSE_PRACTITIONER")
+    return {
+      todayOnly: true,
+      physicianActionRequired: false,
+      ...(userId ? { assignedNpId: userId } : {}),
+    };
+  return { todayOnly: true };
+}
+
+/**
+ * A provider's whole caseload — every resident they cover, whether or not
+ * they need a visit today. Non-provider roles have no caseload.
+ */
+export function caseloadScopeForUser(
+  role: UserRole,
+  userId: string,
+): RoundingListScope {
+  if (role === "PHYSICIAN")
+    return { assignedPhysicianId: userId, visitFor: "PHYSICIAN" };
+  if (role === "NURSE_PRACTITIONER")
+    return { assignedNpId: userId, visitFor: "NURSE_PRACTITIONER" };
+  return { assignedPhysicianId: "", assignedNpId: "" };
 }
 
 type Row = Readonly<{
   patient: RoundingPatient;
   haystack: string;
   assignedNpId: string;
+  assignedPhysicianId: string;
 }>;
 
 function matchesScope(row: Row, scope: RoundingListScope): boolean {
   return (
+    (!scope.todayOnly || isOnTodaysList(row.patient)) &&
     (scope.physicianActionRequired === undefined ||
       row.patient.physicianActionRequired === scope.physicianActionRequired) &&
     (scope.assignedNpId === undefined ||
-      row.assignedNpId === scope.assignedNpId)
+      row.assignedNpId === scope.assignedNpId) &&
+    (scope.assignedPhysicianId === undefined ||
+      row.assignedPhysicianId === scope.assignedPhysicianId)
   );
 }
 
 export type RoundingScopeTotals = Readonly<{
   total: number;
+  /** Residents in the scope who need a visit today. */
+  today: number;
   highPriority: number;
   overdue: number;
   carryForward: number;
@@ -80,9 +139,13 @@ export function summarizeRoundingScope(
   let highPriority = 0;
   let overdue = 0;
   let carryForward = 0;
+  let today = 0;
   for (const { patient: p } of rows) {
     facilitySet.add(p.facility);
-    if (p.priority === "HIGH") highPriority += 1;
+    const visit = needsVisitToday(p, scope.visitFor);
+    if (visit) today += 1;
+    // Inside a caseload, "see first" counts only the viewer's own visits.
+    if (p.priority === "HIGH" && (!scope.visitFor || visit)) highPriority += 1;
     if (p.complianceStatus === "OVERDUE") overdue += 1;
     if (p.carryForward) carryForward += 1;
   }
@@ -90,6 +153,7 @@ export function summarizeRoundingScope(
   return {
     totals: {
       total: rows.length,
+      today,
       highPriority,
       overdue,
       carryForward,
@@ -134,6 +198,7 @@ const toRow = (patient: RoundingPatient): Row => ({
   haystack:
     `${patient.name} ${patient.room} ${patient.payer} ${patient.status}`.toLowerCase(),
   assignedNpId: assignedNpIdByPatientId.get(patient.id) ?? "",
+  assignedPhysicianId: assignedPhysicianIdByPatientId.get(patient.id) ?? "",
 });
 
 /**
@@ -146,7 +211,7 @@ const rowsBySort = new Map<RoundingSort, readonly Row[]>();
 function rowsFor(sort: RoundingSort): readonly Row[] {
   const cached = rowsBySort.get(sort);
   if (cached) return cached;
-  const base = syntheticRoundingCandidates.map(toRow);
+  const base = syntheticResidents.map(toRow);
   const rows =
     sort === "URGENCY"
       ? base
@@ -180,6 +245,8 @@ export function queryRoundingList(
           row.patient.classification === query.classification) &&
         (query.facility === "ALL" || row.patient.facility === query.facility) &&
         (!query.physicianOnly || row.patient.physicianActionRequired) &&
+        (query.visit === "ALL" ||
+          needsVisitToday(row.patient, scope.visitFor)) &&
         (!needle || row.haystack.includes(needle)),
     )
     .map((row) => row.patient);

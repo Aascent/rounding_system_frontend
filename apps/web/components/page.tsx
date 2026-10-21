@@ -1,6 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 /** Centered page column shared by every authenticated route. */
 export function PageContainer({
@@ -27,20 +26,6 @@ export function Kicker({
       )}
       {...props}
     />
-  );
-}
-
-export function SyntheticBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      tone="outline"
-      className={cn(
-        "shrink-0 uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)]",
-        className,
-      )}
-    >
-      Synthetic data only
-    </Badge>
   );
 }
 

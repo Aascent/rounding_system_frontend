@@ -34,6 +34,8 @@ const roundingFiltersSchema = z.object({
   priority: lenientEnum(["ALL", "HIGH", "MEDIUM", "LOW"], "ALL"),
   compliance: lenientEnum(["ALL", "OVERDUE", "DUE_SOON", "ON_TRACK"], "ALL"),
   classification: lenientEnum(["ALL", "LONG_TERM", "SHORT_TERM"], "ALL"),
+  /** `TODAY` keeps only residents who need a visit today. */
+  visit: lenientEnum(["ALL", "TODAY"], "ALL"),
   facility: z.string().trim().min(1).max(100).catch("ALL"),
   physicianOnly: z
     .preprocess((v) => v === true || v === "true", z.boolean())
@@ -59,6 +61,7 @@ export type RoundingListQuery = Readonly<{
   facility?: unknown;
   compliance?: unknown;
   classification?: unknown;
+  visit?: unknown;
   physicianOnly?: unknown;
   sort?: unknown;
 }>;

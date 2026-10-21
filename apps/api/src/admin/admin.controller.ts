@@ -59,7 +59,7 @@ export class AdminController {
   }
   @Get("audit/export")
   @Header("Content-Type", "text/csv; charset=utf-8")
-  @Header("Content-Disposition", 'attachment; filename="synthetic-audit.csv"')
+  @Header("Content-Disposition", 'attachment; filename="audit-log.csv"')
   exportAudit(): string {
     return [
       "occurredAt,actor,eventType,outcome,summary",

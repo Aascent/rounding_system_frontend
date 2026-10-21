@@ -65,7 +65,7 @@ function initialEncounter(
         category: "NEW_ADMISSION",
         severity: "WARNING",
         label: "Initial physician visit due",
-        evidence: `Admitted ${daysSinceAdmission}d ago; physician must see within ${w}d. No physician visit on record.${npNote}`,
+        evidence: `New admission ${daysSinceAdmission === 0 ? "today" : `${daysSinceAdmission} day${daysSinceAdmission === 1 ? "" : "s"} ago`}; first physician visit due within ${w} days.`,
       },
     };
 
@@ -78,7 +78,7 @@ function initialEncounter(
       category: "NEW_ADMISSION",
       severity: "CRITICAL",
       label: "Initial physician visit overdue",
-      evidence: `No physician visit on record; ${daysLate}d past the ${w}-day new-admission window.${npNote}`,
+      evidence: `First physician visit is ${daysLate} day${daysLate === 1 ? "" : "s"} late (due within ${w} days of admission).`,
     },
   };
 }
@@ -106,7 +106,7 @@ function shortTermCadence(
         category: "COMPLIANCE",
         severity: days > interval * 2 ? "CRITICAL" : "WARNING",
         label: "Short-term visit cadence missed",
-        evidence: `${days}d since last visit vs a ${interval}d (3×/week) cadence.`,
+        evidence: `Rehab visit is overdue: last seen ${days} days ago (every ${interval} days).`,
       },
     };
   if (days > interval - c.shortTermDueSoonWindowDays)
@@ -118,7 +118,7 @@ function shortTermCadence(
         category: "COMPLIANCE",
         severity: "INFO",
         label: "Short-term cadence visit due soon",
-        evidence: `${days}d since last visit; cadence is ${interval}d.`,
+        evidence: `Rehab visit due: last seen ${days} days ago (every ${interval} days).`,
       },
     };
   return {
@@ -145,7 +145,7 @@ function longTermInterval(
         category: "COMPLIANCE",
         severity: days > interval * 1.5 ? "CRITICAL" : "WARNING",
         label: "30-day physician interval exceeded",
-        evidence: `${days}d since last physician visit vs a ${interval}d interval.${npNote}`,
+        evidence: `Physician visit is overdue: last seen ${days} days ago (every ${interval} days).`,
       },
     };
   if (days > interval - c.longTermDueSoonWindowDays)
@@ -157,7 +157,7 @@ function longTermInterval(
         category: "COMPLIANCE",
         severity: "INFO",
         label: "30-day physician interval due soon",
-        evidence: `${days}d since last physician visit; interval is ${interval}d.`,
+        evidence: `Physician visit due: last seen ${days} days ago (every ${interval} days).`,
       },
     };
   return {

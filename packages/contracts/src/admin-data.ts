@@ -1,4 +1,9 @@
 import { illustrativeRuleConfig } from "./rules/config.js";
+import {
+  roundingFacilities,
+  syntheticCensus,
+  syntheticRoundingCandidates,
+} from "./rules/synthesize.js";
 import type {
   AuditEvent,
   KeywordEntry,
@@ -89,23 +94,23 @@ export const syntheticKeywordLibrary: KeywordEntry[] =
 const CORE_USERS: ManagedUser[] = [
   {
     id: "user-001",
-    name: "Dr. Taylor Demo",
+    name: "Dr. Taylor Bennett",
     email: "taylor@example.invalid",
     role: "PHYSICIAN",
     status: "ACTIVE",
-    providerId: "synthetic-provider-001",
+    providerId: "provider-001",
   },
   {
     id: "user-002",
-    name: "Casey Example",
+    name: "Casey Holt",
     email: "casey@example.invalid",
     role: "NURSE_PRACTITIONER",
     status: "ACTIVE",
-    providerId: "synthetic-provider-002",
+    providerId: "provider-002",
   },
   {
     id: "user-003",
-    name: "Alex Admin",
+    name: "Alex Reyes",
     email: "admin@example.invalid",
     role: "ADMIN",
     status: "ACTIVE",
@@ -117,7 +122,7 @@ const CORE_USERS: ManagedUser[] = [
     email: "priya@example.invalid",
     role: "PHYSICIAN",
     status: "ACTIVE",
-    providerId: "synthetic-provider-003",
+    providerId: "provider-003",
   },
   {
     id: "user-005",
@@ -125,11 +130,11 @@ const CORE_USERS: ManagedUser[] = [
     email: "jordan@example.invalid",
     role: "NURSE_PRACTITIONER",
     status: "INACTIVE",
-    providerId: "synthetic-provider-004",
+    providerId: "provider-004",
   },
 ];
 
-function generatedUsers(count: number): ManagedUser[] {
+function generatedUsers(): ManagedUser[] {
   const first = [
     "Morgan",
     "Riley",
@@ -164,41 +169,63 @@ function generatedUsers(count: number): ManagedUser[] {
     "Booth",
     "Frost",
   ];
-  const roles = ["PHYSICIAN", "NURSE_PRACTITIONER", "ADMIN"] as const;
-  return Array.from({ length: count }, (_, i) => {
+  // A practice of ~1,000 residents: 5 physicians, 9 NPs and 3 admins in all
+  // (including the core accounts above), with one inactive per clinical role.
+  const plan: ReadonlyArray<
+    readonly [ManagedUser["role"], ManagedUser["status"]]
+  > = [
+    ["PHYSICIAN", "ACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+    ["PHYSICIAN", "ACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+    ["ADMIN", "ACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+    ["PHYSICIAN", "INACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+    ["ADMIN", "ACTIVE"],
+    ["NURSE_PRACTITIONER", "ACTIVE"],
+  ];
+  return plan.map(([role, status], i) => {
     const n = i + CORE_USERS.length + 1;
-    const role = roles[(i * 7) % 10 === 0 ? 2 : i % 2] ?? "PHYSICIAN";
-    // Base-15 counter (index, then carry into the surname) rather than two
-    // independent `mod 15` cycles: since 15 divides evenly into both, any
-    // fixed-multiplier `(i * k) % 15` pairing repeats after only 15 users
-    // (whatever k is, once i wraps past 15 both indices are back where they
-    // started) instead of the full 15*15 = 225 combinations.
+    // The staff list is shorter than either name list, so a coprime stride
+    // through the surnames gives every generated user a distinct pairing.
     const fn = first[i % first.length] ?? "User";
-    const ln = last[Math.floor(i / first.length) % last.length] ?? "Sample";
+    const ln = last[(i * 7) % last.length] ?? "Smith";
     return {
       id: `user-${String(n).padStart(3, "0")}`,
       name: role === "PHYSICIAN" ? `Dr. ${fn} ${ln}` : `${fn} ${ln}`,
       email: `${fn.toLowerCase()}.${ln.toLowerCase()}${n}@example.invalid`,
       role,
-      status: i % 9 === 0 ? "INACTIVE" : "ACTIVE",
-      providerId: role === "ADMIN" ? null : `synthetic-provider-${100 + n}`,
+      status,
+      providerId: role === "ADMIN" ? null : `provider-${100 + n}`,
     } satisfies ManagedUser;
   });
 }
 
 export const syntheticUsers: ManagedUser[] = [
   ...CORE_USERS,
-  ...generatedUsers(78),
+  ...generatedUsers(),
 ];
+
+/** The latest sync processes the whole census; the engine selects today's candidates from it. */
+const PATIENT_COUNT = syntheticCensus.total;
+const CANDIDATE_COUNT = syntheticRoundingCandidates.length;
+const SYNC_REJECTS = 12;
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 const CORE_AUDIT: AuditEvent[] = [
   {
     id: "audit-0001",
     occurredAt: "2026-09-07T07:15:00.000Z",
-    actor: "Alex Admin",
+    actor: "Alex Reyes",
     eventType: "THRESHOLD_VIEW",
     outcome: "SUCCESS",
-    summary: "Viewed synthetic threshold configuration",
+    summary: "Viewed threshold configuration",
   },
   {
     id: "audit-0002",
@@ -206,7 +233,7 @@ const CORE_AUDIT: AuditEvent[] = [
     actor: "System",
     eventType: "LIST_GENERATED",
     outcome: "SUCCESS",
-    summary: "Generated 1000 synthetic rounding candidates across 6 facilities",
+    summary: `Generated ${CANDIDATE_COUNT} rounding candidates from ${PATIENT_COUNT} residents across ${roundingFacilities.length} facilities`,
   },
   {
     id: "audit-0003",
@@ -214,15 +241,15 @@ const CORE_AUDIT: AuditEvent[] = [
     actor: "System",
     eventType: "SYNC_COMPLETED",
     outcome: "SUCCESS",
-    summary: "Synthetic synchronization completed (1000 records, 12 rejected)",
+    summary: `Synchronization completed (${PATIENT_COUNT} records, ${SYNC_REJECTS} rejected)`,
   },
   {
     id: "audit-0004",
     occurredAt: "2026-09-07T06:30:00.000Z",
-    actor: "Dr. Taylor Demo",
+    actor: "Dr. Taylor Bennett",
     eventType: "PATIENT_DETAIL_VIEW",
     outcome: "SUCCESS",
-    summary: "Opened synthetic patient detail for synthetic-patient-0003",
+    summary: "Opened patient detail for patient-003",
   },
   {
     id: "audit-0005",
@@ -230,7 +257,7 @@ const CORE_AUDIT: AuditEvent[] = [
     actor: "Jordan Lee",
     eventType: "LOGIN",
     outcome: "DENIED",
-    summary: "Login denied for a deactivated synthetic account",
+    summary: "Login denied for a deactivated account",
   },
   {
     id: "audit-0006",
@@ -238,19 +265,21 @@ const CORE_AUDIT: AuditEvent[] = [
     actor: "System",
     eventType: "SYNC_FAILED",
     outcome: "FAILED",
-    summary: "Synthetic sync retry after a simulated adapter timeout",
+    summary: "Sync retry after an adapter timeout",
   },
 ];
 
 function generatedAudit(count: number): AuditEvent[] {
   const actors = [
-    "Alex Admin",
-    "Dr. Taylor Demo",
-    "Casey Example",
+    "Alex Reyes",
+    "Dr. Taylor Bennett",
+    "Casey Holt",
     "Dr. Priya Rao",
     "System",
     "Jordan Lee",
-    "Morgan Carter",
+    "Dr. Morgan Carter",
+    "Riley Wells",
+    "Parker Palmer",
   ];
   const types = [
     "LOGIN",
@@ -281,7 +310,7 @@ function generatedAudit(count: number): AuditEvent[] {
       actor,
       eventType,
       outcome: outcomes[i % outcomes.length] ?? "SUCCESS",
-      summary: `Synthetic ${eventType.toLowerCase().replaceAll("_", " ")} by ${actor}`,
+      summary: `${capitalize(eventType.toLowerCase().replaceAll("_", " "))} by ${actor}`,
     } satisfies AuditEvent;
   });
 }
@@ -297,7 +326,7 @@ export const syntheticSyncStatus: SyncStatus = {
   completedAt: "2026-09-07T06:45:00.000Z",
   trigger: "SCHEDULED",
   status: "SUCCEEDED",
-  recordsProcessed: 25,
-  validationRejects: 1,
+  recordsProcessed: PATIENT_COUNT,
+  validationRejects: SYNC_REJECTS,
   errors: 0,
 };

@@ -15,19 +15,19 @@ const accounts = {
   "provider@smart-rounding.test": {
     password: "Demo123!",
     mfa: "123456",
-    session: { name: "Dr. Taylor Demo", role: "PHYSICIAN" },
+    session: { name: "Dr. Taylor Bennett", role: "PHYSICIAN" },
     destination: "/provider",
   },
   "np@smart-rounding.test": {
     password: "Demo123!",
     mfa: "123456",
-    session: { name: "Casey Example", role: "NURSE_PRACTITIONER" },
+    session: { name: "Casey Holt", role: "NURSE_PRACTITIONER" },
     destination: "/provider",
   },
   "admin@smart-rounding.test": {
     password: "Demo123!",
     mfa: "123456",
-    session: { name: "Alex Admin", role: "ADMIN" },
+    session: { name: "Alex Reyes", role: "ADMIN" },
     destination: "/admin",
   },
 } as const satisfies Record<
@@ -68,7 +68,7 @@ export function SyntheticLogin() {
       values.password !== account.password ||
       values.mfa !== account.mfa
     ) {
-      setError("The synthetic email, password, or MFA code is incorrect.");
+      setError("The email, password, or MFA code is incorrect.");
       return;
     }
     saveSyntheticSession(account.session);
@@ -90,12 +90,6 @@ export function SyntheticLogin() {
         <h1 className="mt-1 text-[clamp(1.9rem,4vw,2.4rem)] font-semibold leading-tight">
           Sign in to Smart Rounding
         </h1>
-        <div className="mt-5 border-l-4 border-warning bg-warning-soft px-4 py-3.5 text-sm">
-          <strong>Synthetic preview only</strong>
-          <p className="mt-1 text-muted-foreground">
-            No real identity provider or PHI is used in this environment.
-          </p>
-        </div>
         <form
           noValidate
           className="my-6 grid gap-4"
@@ -151,7 +145,7 @@ export function SyntheticLogin() {
           </Button>
         </form>
         <details className="text-[0.82rem] text-muted-foreground [&_summary]:cursor-pointer [&_summary]:font-bold [&_summary]:text-primary">
-          <summary>View synthetic login credentials</summary>
+          <summary>View login credentials</summary>
           <p className="mt-2">Provider: provider@smart-rounding.test</p>
           <p className="mt-1">NP: np@smart-rounding.test</p>
           <p className="mt-1">Admin: admin@smart-rounding.test</p>

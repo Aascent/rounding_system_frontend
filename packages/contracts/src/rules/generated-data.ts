@@ -125,12 +125,7 @@ const LAST = [
   "Campbell",
   "Mitchell",
 ];
-const PAYERS = [
-  "Synthetic Medicare",
-  "Synthetic Managed Care",
-  "Synthetic Commercial",
-  "Synthetic Medicaid",
-];
+const PAYERS = ["Medicare", "Managed Care", "Commercial", "Medicaid"];
 const BENIGN_NOTES = [
   "Resident stable overnight, no acute concerns.",
   "Participating in scheduled therapies, comfortable.",
@@ -148,16 +143,16 @@ const KEYWORD_NOTES = [
   "New altered mental status this shift, workup started.",
 ];
 const DIAGNOSES = [
-  "Synthetic hypertension",
-  "Synthetic diabetes",
-  "Synthetic COPD",
-  "Synthetic heart failure",
-  "Synthetic dementia",
-  "Synthetic chronic kidney disease",
-  "Synthetic osteoarthritis",
-  "Synthetic atrial fibrillation",
-  "Synthetic post-op recovery",
-  "Synthetic peripheral vascular disease",
+  "Hypertension",
+  "Diabetes",
+  "COPD",
+  "Heart failure",
+  "Dementia",
+  "Chronic kidney disease",
+  "Osteoarthritis",
+  "Atrial fibrillation",
+  "Post-op recovery",
+  "Peripheral vascular disease",
 ];
 
 const NOW_MS = Date.parse("2026-09-07T07:00:00.000Z");
@@ -172,6 +167,38 @@ function isoTime(daysAgo: number, hour = 5): string {
   return d.toISOString();
 }
 
+/** Display values for synthetic lab results; the engine reads only the flag. */
+const LAB_PANEL = [
+  {
+    analyte: "Potassium",
+    unit: "mmol/L",
+    decimals: 1,
+    high: [5.3, 5.9],
+    critical: [6.3, 7.0],
+  },
+  {
+    analyte: "Sodium",
+    unit: "mmol/L",
+    decimals: 0,
+    high: [147, 152],
+    critical: [157, 162],
+  },
+  {
+    analyte: "Creatinine",
+    unit: "mg/dL",
+    decimals: 1,
+    high: [1.6, 2.4],
+    critical: [3.6, 5.2],
+  },
+  {
+    analyte: "Glucose",
+    unit: "mg/dL",
+    decimals: 0,
+    high: [220, 320],
+    critical: [420, 560],
+  },
+] as const;
+
 export function generateSyntheticPatients(
   count: number,
   startIndex: number,
@@ -185,29 +212,44 @@ export function generateSyntheticPatients(
   const out: SyntheticPatientSource[] = [];
   for (let i = 0; i < count; i += 1) {
     const n = startIndex + i;
-    const isRehab = chance(0.28);
-    const los = isRehab ? Math.round(range(5, 60)) : Math.round(range(90, 400));
+    // Daily incidence is calibrated to a typical post-acute census: roughly
+    // one resident in seven needs a visit on any given day.
+    const isRehab = chance(0.22);
+    // ~1% of residents were admitted in the last few days and have not yet
+    // had their initial physician visit.
+    const isNewAdmission = chance(0.012);
+    const los = isNewAdmission
+      ? Math.round(range(0, 5))
+      : isRehab
+        ? Math.round(range(6, 60))
+        : Math.round(range(90, 400));
     const admissionDaysAgo = los;
 
-    // Compliance spread: mostly on-track, a realistic minority overdue/due-soon.
+    // Compliance spread: providers mostly visit ahead of the window, so only
+    // a small share is due or overdue on any given day.
     const roll = rand();
     let lastPhysDaysAgo: number | null;
     let lastNpDaysAgo: number | null;
-    if (isRehab) {
-      // Short-term / rehab cadence is every ~3 days; keep most within it.
-      lastNpDaysAgo = Math.round(range(1, roll < 0.16 ? 8 : 3));
-      lastPhysDaysAgo = chance(0.8) ? Math.round(range(1, 6)) : null;
+    if (isNewAdmission) {
+      lastPhysDaysAgo = null;
+      lastNpDaysAgo = chance(0.5) ? Math.min(1, los) : null;
+    } else if (isRehab) {
+      // Short-term / rehab cadence is every ~3 days.
+      if (roll < 0.62) lastNpDaysAgo = 1;
+      else if (roll < 0.84) lastNpDaysAgo = 2;
+      else if (roll < 0.96) lastNpDaysAgo = 3;
+      else lastNpDaysAgo = Math.round(range(4, 7));
+      lastPhysDaysAgo = Math.round(range(lastNpDaysAgo, 6));
     } else {
-      if (roll < 0.03) lastPhysDaysAgo = null;
-      else if (roll < 0.07) lastPhysDaysAgo = Math.round(range(46, 66));
-      else if (roll < 0.19) lastPhysDaysAgo = Math.round(range(31, 44));
-      else if (roll < 0.29) lastPhysDaysAgo = Math.round(range(25, 30));
-      else lastPhysDaysAgo = Math.round(range(1, 24));
+      if (roll < 0.003) lastPhysDaysAgo = Math.round(range(46, 66));
+      else if (roll < 0.013) lastPhysDaysAgo = Math.round(range(31, 44));
+      else if (roll < 0.03) lastPhysDaysAgo = Math.round(range(25, 30));
+      else lastPhysDaysAgo = Math.round(range(1, 23));
       lastNpDaysAgo = chance(0.55) ? Math.round(range(1, 20)) : null;
     }
 
-    const abnormalVitals = chance(0.1);
-    const vitals = chance(0.05)
+    const abnormalVitals = chance(0.015);
+    const vitals = chance(0.005)
       ? null
       : {
           temperatureC:
@@ -230,37 +272,45 @@ export function generateSyntheticPatients(
           recordedAt: isoTime(0, 5),
         };
 
-    const labFlags: SyntheticPatientSource["labFlags"] = chance(0.05)
-      ? [
-          {
-            analyte: pick(["Potassium", "Sodium", "Creatinine", "Hemoglobin"]),
-            value: `${range(2, 8).toFixed(1)} unit`,
-            flag: chance(0.4) ? "HH" : "H",
-            observedAt: isoTime(0, 4),
-          },
-        ]
-      : [];
+    // Same three draws as before (panel, flag, value), so the rest of the
+    // generated population is unchanged.
+    const labFlags: SyntheticPatientSource["labFlags"] = [];
+    if (chance(0.008)) {
+      const lab = pick(LAB_PANEL);
+      const critical = chance(0.4);
+      const [lo, hi] = critical ? lab.critical : lab.high;
+      labFlags.push({
+        analyte: lab.analyte,
+        value: `${range(lo, hi).toFixed(lab.decimals)} ${lab.unit}`,
+        flag: critical ? "HH" : "H",
+        observedAt: isoTime(0, 4),
+      });
+    }
 
-    const hasKeyword = chance(0.07);
+    const hasKeyword = chance(0.012);
     const weightBase = range(52, 96);
-    const weightDrift = chance(0.05)
+    const weightDrift = chance(0.01)
       ? weightBase * (chance(0.5) ? 1.05 : 0.94)
       : weightBase * range(0.99, 1.01);
 
     out.push({
-      id: `synthetic-patient-${String(n).padStart(4, "0")}`,
+      id: `patient-${String(n).padStart(4, "0")}`,
       name: `${pick(FIRST)} ${pick(LAST)}`,
       facility: pick(FACILITIES),
       room: `${Math.round(range(1, 4))}${String.fromCharCode(65 + Math.floor(rand() * 3))}-${Math.round(range(1, 40))}`,
       payer: pick(PAYERS),
-      statusLabel: isRehab ? "Short-term rehabilitation" : "Long-term care",
+      statusLabel:
+        isRehab || isNewAdmission
+          ? "Short-term rehabilitation"
+          : "Long-term care",
       dateOfBirth: isoDate(Math.round(range(60, 100) * 365)),
       diagnoses: [pick(DIAGNOSES), pick(DIAGNOSES)].filter(
         (d, idx, a) => a.indexOf(d) === idx,
       ),
       admissionDate: isoTime(admissionDaysAgo, 12),
       lengthOfStayDays: los,
-      ptSessionsPerWeek: isRehab ? Math.round(range(3, 6)) : null,
+      ptSessionsPerWeek:
+        isRehab && !isNewAdmission ? Math.round(range(3, 6)) : null,
       lastPhysicianVisit:
         lastPhysDaysAgo === null ? null : isoDate(lastPhysDaysAgo),
       lastNpVisit: lastNpDaysAgo === null ? null : isoDate(lastNpDaysAgo),
@@ -290,9 +340,13 @@ export function generateSyntheticPatients(
               },
             ]),
       ],
-      carriedForwardFrom: chance(0.04) ? isoDate(1) : null,
-      dataFreshnessHours: chance(0.05) ? range(31, 60) : range(1, 8),
-      scenario: `Generated ${isRehab ? "short-term" : "long-term"} record for volume and pagination testing (#${n}).`,
+      carriedForwardFrom: chance(0.008) ? isoDate(1) : null,
+      dataFreshnessHours: chance(0.004) ? range(31, 60) : range(1, 8),
+      scenario: isNewAdmission
+        ? "Recently admitted; initial physician visit pending."
+        : isRehab
+          ? "Short-term rehabilitation stay with therapy several times a week."
+          : "Long-term care resident on routine monthly physician visits.",
     });
   }
   return out;

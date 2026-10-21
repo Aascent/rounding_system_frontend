@@ -33,15 +33,16 @@ void test("supports synthetic user and sync administration", () => {
 });
 void test("creates a validated synthetic user", () => {
   const service = new AdminService(loadEnvironment({ DATA_MODE: "synthetic" }));
+  const before = service.listUsers().length;
   const user = service.createUser({
     name: "New Synthetic User",
     email: "new-user@example.invalid",
     role: "PHYSICIAN",
     status: "ACTIVE",
-    providerId: "synthetic-provider-003",
+    providerId: "provider-003",
   });
   assert.equal(user.email, "new-user@example.invalid");
-  assert.equal(service.listUsers().length, 84);
+  assert.equal(service.listUsers().length, before + 1);
 });
 void test("admin APIs fail closed without a configured data mode", () => {
   const service = new AdminService(loadEnvironment({ DATA_MODE: "disabled" }));

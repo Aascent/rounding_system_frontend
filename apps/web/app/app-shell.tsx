@@ -108,7 +108,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           pathname.startsWith("/patients"))));
   if (!ready || !session || wrongRole)
     return (
-      <RouteState title="Checking synthetic session…" live="polite">
+      <RouteState title="Checking session…" live="polite">
         <Spinner className="mx-auto" />
       </RouteState>
     );

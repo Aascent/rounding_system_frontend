@@ -23,6 +23,7 @@ export function parseRoundingSearchParams(raw: SearchParams): {
     facility: first(raw.facility),
     compliance: first(raw.compliance),
     classification: first(raw.classification),
+    visit: first(raw.visit),
     sort: first(raw.sort),
     page: first(raw.page),
     pageSize: first(raw.pageSize),
@@ -34,6 +35,7 @@ export function parseRoundingSearchParams(raw: SearchParams): {
     facility: query.facility,
     compliance: query.compliance,
     classification: query.classification,
+    visit: query.visit,
     sort: query.sort,
   };
 
@@ -46,6 +48,7 @@ export function parseRoundingSearchParams(raw: SearchParams): {
   add("facility", filters.facility);
   add("compliance", filters.compliance);
   add("classification", filters.classification);
+  add("visit", filters.visit);
   add("sort", filters.sort);
   if (pageSize !== DEFAULT_PAGE_SIZE) params.set("pageSize", String(pageSize));
 

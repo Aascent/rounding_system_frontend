@@ -14,7 +14,7 @@ export const vitalsEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "VITALS",
       severity: v.temperatureC >= 39.5 ? "CRITICAL" : "WARNING",
       label: "Elevated temperature",
-      evidence: `Temperature ${v.temperatureC.toFixed(1)}°C ≥ ${t.temperatureHighC.toFixed(1)}°C review threshold.`,
+      evidence: `Fever: temperature ${v.temperatureC.toFixed(1)}°C (review at ${t.temperatureHighC.toFixed(1)}°C or above).`,
     });
 
   if (v.spo2 !== null && v.spo2 <= t.spo2LowPct)
@@ -23,7 +23,7 @@ export const vitalsEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "VITALS",
       severity: v.spo2 <= 90 ? "CRITICAL" : "WARNING",
       label: "Low oxygen saturation",
-      evidence: `SpO₂ ${v.spo2}% ≤ ${t.spo2LowPct}% threshold.`,
+      evidence: `Low oxygen: SpO₂ ${v.spo2}% (alert at ${t.spo2LowPct}% or below).`,
     });
 
   if (
@@ -38,7 +38,7 @@ export const vitalsEvaluator: SignalEvaluator = ({ input, cfg }) => {
           ? "CRITICAL"
           : "WARNING",
       label: "Hypertensive reading",
-      evidence: `BP ${v.systolic ?? "?"}/${v.diastolic ?? "?"} at or above ${t.systolicHigh}/${t.diastolicHigh}.`,
+      evidence: `High blood pressure: ${v.systolic ?? "?"}/${v.diastolic ?? "?"} (alert at ${t.systolicHigh}/${t.diastolicHigh} or above).`,
     });
 
   if (v.systolic !== null && v.systolic <= t.systolicLow)
@@ -47,7 +47,7 @@ export const vitalsEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "VITALS",
       severity: v.systolic <= 80 ? "CRITICAL" : "WARNING",
       label: "Hypotensive reading",
-      evidence: `Systolic ${v.systolic} ≤ ${t.systolicLow} threshold.`,
+      evidence: `Low blood pressure: systolic ${v.systolic} (alert at ${t.systolicLow} or below).`,
     });
 
   if (v.heartRate !== null && v.heartRate >= t.heartRateHigh)
@@ -56,7 +56,7 @@ export const vitalsEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "VITALS",
       severity: v.heartRate >= 130 ? "CRITICAL" : "WARNING",
       label: "Tachycardia",
-      evidence: `Heart rate ${v.heartRate} ≥ ${t.heartRateHigh} bpm.`,
+      evidence: `Fast heart rate: ${v.heartRate} bpm (alert at ${t.heartRateHigh} or above).`,
     });
 
   if (v.heartRate !== null && v.heartRate <= t.heartRateLow)
@@ -65,7 +65,7 @@ export const vitalsEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "VITALS",
       severity: "WARNING",
       label: "Bradycardia",
-      evidence: `Heart rate ${v.heartRate} ≤ ${t.heartRateLow} bpm.`,
+      evidence: `Slow heart rate: ${v.heartRate} bpm (alert at ${t.heartRateLow} or below).`,
     });
 
   return out;

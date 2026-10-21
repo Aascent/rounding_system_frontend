@@ -11,12 +11,12 @@ const COPY = {
   PHYSICIAN: {
     title: "Patient list",
     description:
-      "Patients whose signals require a physician visit — critical findings, new admissions, and the long-term 30-day rule — ordered by clinical urgency.",
+      "Every resident you are the attending physician for. Those who need a visit from you today are marked.",
   },
   NURSE_PRACTITIONER: {
     title: "Patient list",
     description:
-      "Patients you can round on under NP protocol (no physician visit currently required), ordered by clinical urgency.",
+      "Every resident in your care. Those who need a visit from you today are marked.",
   },
 } as const;
 
@@ -29,7 +29,7 @@ export default async function PatientListPage({
   if (role !== "PHYSICIAN" && role !== "NURSE_PRACTITIONER") redirect("/");
 
   const parsed = parseRoundingSearchParams(await searchParams);
-  const pageData = await applicationData.roundingListPage(parsed.query, role);
+  const pageData = await applicationData.caseloadPage(parsed.query, role);
   const copy = COPY[role];
 
   return (
@@ -41,6 +41,8 @@ export default async function PatientListPage({
       filters={parsed.filters}
       pageSize={parsed.pageSize}
       querySansPage={parsed.querySansPage}
+      scopeLabel="residents in your care"
+      visitFor={role}
     />
   );
 }

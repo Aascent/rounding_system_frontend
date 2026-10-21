@@ -10,7 +10,7 @@ export const dataQualityEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "DATA_QUALITY",
       severity: "INFO",
       label: "Stale source record",
-      evidence: `Last refreshed ${Math.round(input.dataFreshnessHours)}h ago (sync threshold ${cfg.dataQuality.staleAfterHours}h).`,
+      evidence: `Chart last updated ${Math.round(input.dataFreshnessHours)} hours ago (expected within ${cfg.dataQuality.staleAfterHours} hours).`,
     });
   if (input.vitals === null)
     out.push({
@@ -18,8 +18,7 @@ export const dataQualityEvaluator: SignalEvaluator = ({ input, cfg }) => {
       category: "DATA_QUALITY",
       severity: "INFO",
       label: "No vitals on record",
-      evidence:
-        "No vital-sign readings ingested for this patient in the last cycle.",
+      evidence: "No vital signs recorded in the last day.",
     });
   return out;
 };

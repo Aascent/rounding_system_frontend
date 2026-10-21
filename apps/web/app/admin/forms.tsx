@@ -165,8 +165,7 @@ export function KeywordForm({
         />
       </Label>
       <p className="text-[0.8rem] leading-relaxed text-muted-foreground">
-        Synthetic configuration only. Clinical use requires an approved keyword
-        catalog.
+        Clinical use requires an approved keyword catalog.
       </p>
       <div className="flex justify-end pt-1">
         <Button type="submit" disabled={isSubmitting}>

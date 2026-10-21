@@ -7,7 +7,7 @@ export default function NotFound() {
     <RouteState
       kicker="Not found"
       title="Record unavailable"
-      description="The requested synthetic record does not exist or is no longer available."
+      description="The requested record does not exist or is no longer available."
     >
       <Button asChild>
         <Link href="/">Return to rounding list</Link>

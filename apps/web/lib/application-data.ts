@@ -2,6 +2,7 @@ import {
   buildDashboardTotals,
   buildNpRoster,
   buildQueueInsights,
+  caseloadScopeForUser,
   getNpRosterEntry,
   getSyntheticPatient,
   patientsInScope,
@@ -68,10 +69,18 @@ export interface ApplicationDataSource {
     query: RoundingListQuery,
     role?: UserRole,
   ): Promise<RoundingListPage>;
+  /**
+   * The signed-in provider's whole caseload — every resident they cover,
+   * with today's visits included — for the patient list.
+   */
+  caseloadPage(
+    query: RoundingListQuery,
+    role: UserRole,
+  ): Promise<RoundingListPage>;
   /** The physician oversight roster: active NPs and their real panel sizes. */
   npRoster(): Promise<NpRosterEntry[]>;
   npRosterEntry(npId: string): Promise<NpRosterEntry | undefined>;
-  /** One NP's actual patient panel — every case, not filtered by role scope. */
+  /** One NP's whole caseload — every resident they cover. */
   npPatientList(
     npId: string,
     query: RoundingListQuery,
@@ -81,6 +90,19 @@ export interface ApplicationDataSource {
   adminData(): Promise<AdminData>;
 }
 
+/**
+ * The login offers exactly one account per role, and the server only sees the
+ * role cookie, so each provider role maps to that account's user. Scoping by
+ * user (not just role) gives each provider their own share of today's list.
+ */
+const SIGNED_IN_USER_ID: Partial<Record<UserRole, string>> = {
+  PHYSICIAN: "user-001",
+  NURSE_PRACTITIONER: "user-002",
+};
+
+const scopeFor = (role: UserRole) =>
+  roundingScopeForRole(role, SIGNED_IN_USER_ID[role]);
+
 class SyntheticApplicationDataSource implements ApplicationDataSource {
   providerSummary(role?: UserRole) {
     if (!role) {
@@ -89,7 +111,7 @@ class SyntheticApplicationDataSource implements ApplicationDataSource {
         insights: syntheticQueueInsights,
       });
     }
-    const patients = patientsInScope(roundingScopeForRole(role));
+    const patients = patientsInScope(scopeFor(role));
     return Promise.resolve({
       dashboard: {
         ...syntheticDashboard,
@@ -99,7 +121,16 @@ class SyntheticApplicationDataSource implements ApplicationDataSource {
     });
   }
   roundingListPage(query: RoundingListQuery, role?: UserRole) {
-    const scope = role ? roundingScopeForRole(role) : {};
+    const scope = role ? scopeFor(role) : { todayOnly: true };
+    const { facilities, totals } = summarizeRoundingScope(scope);
+    return Promise.resolve({
+      ...queryRoundingList(query, scope),
+      facilities,
+      totals,
+    });
+  }
+  caseloadPage(query: RoundingListQuery, role: UserRole) {
+    const scope = caseloadScopeForUser(role, SIGNED_IN_USER_ID[role] ?? "");
     const { facilities, totals } = summarizeRoundingScope(scope);
     return Promise.resolve({
       ...queryRoundingList(query, scope),
@@ -114,7 +145,7 @@ class SyntheticApplicationDataSource implements ApplicationDataSource {
     return Promise.resolve(getNpRosterEntry(npId));
   }
   npPatientList(npId: string, query: RoundingListQuery) {
-    const scope = { assignedNpId: npId };
+    const scope = caseloadScopeForUser("NURSE_PRACTITIONER", npId);
     const { facilities, totals } = summarizeRoundingScope(scope);
     return Promise.resolve({
       ...queryRoundingList(query, scope),

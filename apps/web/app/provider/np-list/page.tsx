@@ -17,7 +17,6 @@ import {
   MetricGrid,
   PageContainer,
   PageHeading,
-  SyntheticBadge,
 } from "@/components/page";
 
 /**
@@ -34,10 +33,11 @@ export default async function NpRosterPage() {
   const totals = roster.reduce(
     (acc, np) => ({
       patients: acc.patients + np.patientCount,
+      visitsToday: acc.visitsToday + np.visitsToday,
       highPriority: acc.highPriority + np.highPriority,
       overdue: acc.overdue + np.overdue,
     }),
-    { patients: 0, highPriority: 0, overdue: 0 },
+    { patients: 0, visitsToday: 0, highPriority: 0, overdue: 0 },
   );
 
   return (
@@ -45,15 +45,14 @@ export default async function NpRosterPage() {
       <PageHeading
         kicker="Provider dashboard"
         title="Nurse practitioner list"
-        description="Nurse practitioners you can see patients for. Each panel spans every priority, compliance and classification case that NP is covering — open one to review it."
-        actions={<SyntheticBadge />}
+        description="The nurse practitioners covering your facilities and the rest of the practice. Open one to review their residents."
       />
       <p
         role="note"
         className="mb-4 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-2.5 text-[0.82rem] text-muted-foreground"
       >
-        The totals below are added up across every active NP’s panel — not the
-        same scope as{" "}
+        The totals below are added up across every active NP’s caseload — not
+        the same scope as{" "}
         <Link
           href="/provider/patient-list"
           className="font-semibold text-primary hover:underline"
@@ -70,19 +69,19 @@ export default async function NpRosterPage() {
           hint="Active staff"
         />
         <MetricCard
-          label="Patients covered (all NPs)"
+          label="Residents covered"
           value={totals.patients}
-          hint="Summed across every NP panel"
+          hint="Summed across every NP"
         />
         <MetricCard
-          label="High priority (all NPs)"
-          value={totals.highPriority}
-          hint="Summed across every NP panel"
+          label="NP visits today"
+          value={totals.visitsToday}
+          hint="Summed across every NP"
         />
         <MetricCard
-          label="Overdue (all NPs)"
+          label="Visits overdue"
           value={totals.overdue}
-          hint="Summed across every NP panel"
+          hint="Summed across every NP"
         />
       </MetricGrid>
 
@@ -103,8 +102,9 @@ export default async function NpRosterPage() {
               <TableRow className="border-0">
                 <TableHead scope="col">Nurse practitioner</TableHead>
                 <TableHead scope="col">Status</TableHead>
-                <TableHead scope="col">Patients</TableHead>
-                <TableHead scope="col">High priority</TableHead>
+                <TableHead scope="col">Residents</TableHead>
+                <TableHead scope="col">Visits today</TableHead>
+                <TableHead scope="col">See first</TableHead>
                 <TableHead scope="col">Overdue</TableHead>
                 <TableHead scope="col">
                   <span className="sr-only">Open</span>
@@ -134,6 +134,7 @@ export default async function NpRosterPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{np.patientCount}</TableCell>
+                  <TableCell>{np.visitsToday}</TableCell>
                   <TableCell>{np.highPriority}</TableCell>
                   <TableCell>{np.overdue}</TableCell>
                   <TableCell>
@@ -155,8 +156,7 @@ export default async function NpRosterPage() {
               No active nurse practitioners
             </h3>
             <p className="mt-2 text-muted-foreground">
-              There are no active nurse practitioner accounts in the synthetic
-              roster right now.
+              There are no active nurse practitioner accounts right now.
             </p>
           </div>
         )}
@@ -167,7 +167,6 @@ export default async function NpRosterPage() {
           Decision support only. Clinicians remain responsible for care
           decisions.
         </p>
-        <span className="font-bold text-primary">No PHI · Synthetic mode</span>
       </footer>
     </PageContainer>
   );

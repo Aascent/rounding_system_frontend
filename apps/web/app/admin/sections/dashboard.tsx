@@ -18,6 +18,7 @@ import {
   FACILITIES,
   JOB_HISTORY,
   JOB_HISTORY_COLUMNS,
+  LISTED_TODAY,
   SYSTEM_STATUS,
 } from "./fixtures";
 import { AddButton, KeywordToggle, Panel, PanelHeading } from "./ui";
@@ -48,7 +49,7 @@ export function DashboardSection({
           label="System status"
           value="Connected"
           valueClassName="text-2xl"
-          hint="Synthetic data service"
+          hint="Data service online"
         />
         <MetricCard
           label="Last job run"
@@ -57,14 +58,14 @@ export function DashboardSection({
           hint="Daily synchronization"
         />
         <MetricCard
-          label="Patients today"
-          value={patientsToday}
-          hint="Last completed run"
+          label="Total patients"
+          value={patientsToday.toLocaleString("en-US")}
+          hint={`${LISTED_TODAY.toLocaleString("en-US")} on today's rounding lists`}
         />
         <MetricCard
           label="Active keywords"
           value={keywords.filter((k) => k.active).length}
-          hint="Illustrative library"
+          hint="Review library"
         />
         <MetricCard
           label="Active users"
@@ -158,7 +159,7 @@ export function DashboardSection({
             }
           />
           <ul className="mt-3">
-            {FACILITIES.map(([name, address, providers]) => (
+            {FACILITIES.map(([name, address, patients]) => (
               <li
                 key={name}
                 className="flex items-center justify-between gap-3 border-t border-border px-1 py-2.5"
@@ -170,7 +171,7 @@ export function DashboardSection({
                   </small>
                 </span>
                 <b className="text-[0.73rem] font-bold text-muted-foreground">
-                  {providers} providers
+                  {patients.toLocaleString("en-US")} patients
                 </b>
               </li>
             ))}
@@ -191,7 +192,7 @@ export function DashboardSection({
               ...SYSTEM_STATUS,
               [
                 "Daily job",
-                `${sync.status} · ${sync.recordsProcessed} processed`,
+                `${sync.status} · ${sync.recordsProcessed.toLocaleString("en-US")} processed`,
               ] as const,
             ].map(([label, detail]) => (
               <li

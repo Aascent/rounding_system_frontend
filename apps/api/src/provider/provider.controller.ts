@@ -34,7 +34,11 @@ export class ProviderController {
     // RolesGuard already guarantees principal.role is PHYSICIAN or
     // NURSE_PRACTITIONER here; the scope always comes from the authenticated
     // principal, never from the query string.
-    return this.providerService.roundingList(query, request.principal?.role);
+    return this.providerService.roundingList(
+      query,
+      request.principal?.role,
+      request.principal?.subject,
+    );
   }
 
   @Get("queue-insights")

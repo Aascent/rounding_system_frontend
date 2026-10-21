@@ -2,7 +2,6 @@
 import type {
   DashboardResponse,
   QueueInsightsResponse,
-  RoundingPatient,
 } from "@smart-rounding/contracts";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -10,130 +9,147 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DonutChart,
   FacilityLoadChart,
-  RankedBarChart,
   StackedSignalChart,
 } from "@/components/ui/chart";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Kicker,
   MetricCard,
   MetricGrid,
   PageContainer,
   PageHeading,
-  SyntheticBadge,
 } from "@/components/page";
-import { priorityTone } from "@/lib/status";
+import { priorityLabels, priorityTone } from "@/lib/status";
+
+/** How many of today's most urgent patients the queue card lists. */
+const QUEUE_ROWS = 8;
 
 export function ProviderDashboard({
   dashboard,
   insights,
-  preview,
-  previewTotal,
 }: Readonly<{
   dashboard: DashboardResponse;
   insights: QueueInsightsResponse;
-  preview: RoundingPatient[];
-  previewTotal: number;
 }>) {
+  const queue = insights.topQueue.slice(0, QUEUE_ROWS);
   return (
     <PageContainer>
       <PageHeading
         kicker="Provider dashboard"
         title="Today’s rounding overview"
-        description="Deterministic rule signals over synthetic data. Patients are ordered by clinical urgency, with physician-required visits breaking ties."
-        actions={<SyntheticBadge />}
+        description="The patients who need a visit from you today, most urgent first."
       />
 
       <MetricGrid>
         <MetricCard
-          label="Your patients"
+          label="On your list today"
           value={dashboard.totals.patients}
-          hint={`Across ${dashboard.totals.facilities} facilities`}
+          hint={`Across ${dashboard.totals.facilities} ${dashboard.totals.facilities === 1 ? "facility" : "facilities"}`}
         />
         <MetricCard
-          label="High priority"
+          label="See first"
           value={dashboard.totals.highPriority}
-          hint="See first"
+          hint="Urgent findings"
         />
         <MetricCard
-          label="Compliance overdue"
+          label="Visits overdue"
           value={dashboard.totals.overdue}
-          hint="Physician interval missed"
+          hint="Past the required visit window"
         />
         <MetricCard
-          label="Carried forward"
+          label="Carried over"
           value={dashboard.totals.carryForward}
-          hint="Unseen from prior day"
+          hint="Not seen yesterday"
         />
       </MetricGrid>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="flex flex-col lg:col-span-2">
           <CardHeader>
             <Kicker className="mb-1">Rounding queue</Kicker>
             <CardTitle>Who to see first</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Top {insights.topQueue.length} of{" "}
-              {dashboard.totals.patients.toLocaleString()} by urgency score.
+              {queue.length < dashboard.totals.patients
+                ? `The ${queue.length} most urgent of your ${dashboard.totals.patients.toLocaleString()} patients today.`
+                : `All ${dashboard.totals.patients.toLocaleString()} of your patients today, most urgent first.`}
             </p>
           </CardHeader>
-          <CardContent className="pt-2">
-            <RankedBarChart
-              unit="pts"
-              maxVisibleRows={8}
-              data={insights.topQueue.map((p) => ({
-                label: p.name,
-                value: p.urgencyScore,
-                tone: priorityTone(p.priority),
-                meta: `${p.name} · ${p.reason}`,
-              }))}
-            />
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
-              {insights.topQueue.slice(0, 5).map((p) => (
-                <Link
-                  key={p.id}
-                  href={`/patients/${p.id}?from=dashboard`}
-                  className="font-semibold text-primary hover:underline"
-                >
-                  {p.name}
-                  {p.physicianActionRequired ? " · MD" : ""}
-                </Link>
-              ))}
-            </div>
+          <CardContent className="flex flex-1 flex-col pt-1">
+            {queue.length ? (
+              <ol className="divide-y divide-border">
+                {queue.map((p, index) => (
+                  <li key={p.id} className="flex items-start gap-3 py-3">
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground"
+                    >
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/patients/${p.id}?from=dashboard`}
+                        className="font-semibold text-primary underline-offset-2 hover:underline"
+                      >
+                        {p.name}
+                      </Link>
+                      <span className="block text-[0.78rem] text-muted-foreground sm:ml-2 sm:inline">
+                        {p.facility} · Room {p.room}
+                      </span>
+                      <p className="mt-0.5 line-clamp-2 text-[0.84rem] text-foreground/80">
+                        {p.reason}
+                      </p>
+                    </div>
+                    <Badge
+                      tone={priorityTone(p.priority)}
+                      dot
+                      className="mt-0.5 shrink-0"
+                    >
+                      {priorityLabels[p.priority]}
+                    </Badge>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="py-10 text-center text-muted-foreground">
+                No visits needed today.
+              </p>
+            )}
+            <Link
+              href="/provider/patient-list?visit=TODAY"
+              className="mt-auto border-t border-border pt-3 text-sm font-bold text-primary hover:underline"
+            >
+              See all {dashboard.totals.patients.toLocaleString()} visits for
+              today →
+            </Link>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Case mix</CardTitle>
+            <CardTitle>How urgent is today&apos;s list?</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Your patients today, grouped by how soon they should be seen.
+            </p>
           </CardHeader>
           <CardContent className="grid gap-6 pt-4">
             <div>
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Priority band
+                Urgency
               </p>
               <DonutChart
                 centerLabel={dashboard.totals.patients.toLocaleString()}
-                centerSublabel="patients"
+                centerSublabel="patients today"
                 segments={[
                   {
-                    label: "High",
+                    label: "See first",
                     value: insights.priorityBreakdown.HIGH,
                     tone: "danger",
                   },
                   {
-                    label: "Medium",
+                    label: "See today",
                     value: insights.priorityBreakdown.MEDIUM,
                     tone: "warning",
                   },
                   {
-                    label: "Low",
+                    label: "Routine visit",
                     value: insights.priorityBreakdown.LOW,
                     tone: "success",
                   },
@@ -142,7 +158,7 @@ export function ProviderDashboard({
             </div>
             <div className="border-t border-border pt-4">
               <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Compliance status
+                Visit timing
               </p>
               <DonutChart
                 height={170}
@@ -160,7 +176,7 @@ export function ProviderDashboard({
                     tone: "warning",
                   },
                   {
-                    label: "On track",
+                    label: "On schedule",
                     value: insights.complianceBreakdown.ON_TRACK,
                     tone: "success",
                   },
@@ -174,10 +190,10 @@ export function ProviderDashboard({
       <section className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Signals by category</CardTitle>
+            <CardTitle>Why patients are on your list</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Patients with at least one rule signal; the red segment is the
-              critical count.
+              Patients flagged by each type of check. Red shows how many are
+              critical.
             </p>
           </CardHeader>
           <CardContent className="pt-2">
@@ -193,9 +209,9 @@ export function ProviderDashboard({
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Rounding pressure by facility</CardTitle>
+            <CardTitle>Patients by facility</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Candidate volume and high-priority count per facility.
+              Your patients today at each facility, and how many to see first.
             </p>
           </CardHeader>
           <CardContent className="pt-2">
@@ -208,68 +224,6 @@ export function ProviderDashboard({
             />
           </CardContent>
         </Card>
-      </section>
-
-      <section className="mt-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-2 border-b border-border p-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <Kicker className="mb-1">Preview</Kicker>
-            <h2 className="text-xl font-semibold">Top of today&apos;s queue</h2>
-          </div>
-          <Link
-            href="/provider/patient-list"
-            className="text-sm font-bold text-primary hover:underline"
-          >
-            Open full rounding list ({previewTotal.toLocaleString()}) →
-          </Link>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow className="border-0">
-              <TableHead>Patient</TableHead>
-              <TableHead>Facility / room</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Compliance</TableHead>
-              <TableHead>Reason</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {preview.map((patient) => (
-              <TableRow key={patient.id}>
-                <TableCell className="min-w-[180px]">
-                  <Link
-                    className="font-bold text-primary underline-offset-2 hover:underline"
-                    href={`/patients/${patient.id}?from=dashboard`}
-                  >
-                    {patient.name}
-                  </Link>
-                  {patient.physicianActionRequired && (
-                    <span className="ml-2 text-[0.7rem] font-bold uppercase text-destructive">
-                      MD
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {patient.facility}
-                  <span className="mt-1 block text-[0.78rem] text-muted-foreground">
-                    Room {patient.room}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <Badge tone={priorityTone(patient.priority)} dot>
-                    {patient.priority}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {patient.complianceStatus.replace("_", " ")}
-                </TableCell>
-                <TableCell className="text-[0.9rem]">
-                  {patient.reason}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
       </section>
     </PageContainer>
   );

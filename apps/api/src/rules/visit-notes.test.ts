@@ -9,8 +9,8 @@ import {
 
 const base = {
   id: "note-1",
-  patientId: "synthetic-patient-001",
-  authorName: "Dr. Taylor Demo",
+  patientId: "patient-001",
+  authorName: "Dr. Taylor Bennett",
   authorRole: "PHYSICIAN" as const,
   note: "Patient stable, continue current plan.",
   occurredAt: "2026-09-21T14:00:00.000Z",

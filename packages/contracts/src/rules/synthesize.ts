@@ -135,7 +135,14 @@ function buildRoundingPatient(
     daysSinceAdmission: evaluation.daysSinceAdmission,
     urgencyScore: evaluation.urgencyScore,
     physicianActionRequired: evaluation.physicianActionRequired,
-    reason: evaluation.reason,
+    // With no rule signal the engine's reason is a generic "routine review";
+    // say what that means for the resident instead.
+    reason:
+      evaluation.signals.length > 0
+        ? evaluation.reason
+        : source.carriedForwardFrom !== null
+          ? "Not seen yesterday — carried over to today."
+          : "No visit needed today — visits are on schedule.",
     signals: evaluation.signals,
     carryForward: source.carriedForwardFrom !== null,
     scenario: source.scenario,
@@ -245,11 +252,32 @@ const synthesized: Synthesized[] = allSources
     return a.rounding.name.localeCompare(b.rounding.name);
   });
 
+/**
+ * Today's worklist: only residents for whom at least one rule fired (a
+ * clinical signal, a visit due or overdue, stale data) or who were carried
+ * forward unseen. Everyone else in the census needs no visit today.
+ */
+const worklist: Synthesized[] = synthesized.filter((s) =>
+  isOnTodaysList(s.rounding),
+);
+
+/** The full synced census: every resident, whether or not they are on a list today. */
+export const syntheticCensus: Readonly<{
+  total: number;
+  byFacility: Readonly<Record<string, number>>;
+}> = {
+  total: synthesized.length,
+  byFacility: synthesized.reduce<Record<string, number>>((acc, s) => {
+    acc[s.rounding.facility] = (acc[s.rounding.facility] ?? 0) + 1;
+    return acc;
+  }, {}),
+};
+
 export const syntheticRoundingList: RoundingListResponse =
   roundingListResponseSchema.parse({
     mode: "synthetic",
     generatedAt: SYNTHETIC_NOW,
-    items: synthesized.map((s) => s.rounding),
+    items: worklist.map((s) => s.rounding),
   });
 
 /** Dashboard totals for an arbitrary (possibly scoped) set of patients. */
@@ -269,13 +297,13 @@ export const syntheticDashboard: DashboardResponse =
   dashboardResponseSchema.parse({
     mode: "synthetic",
     provider: {
-      id: "synthetic-provider-001",
-      name: "Dr. Taylor Demo",
+      id: "provider-001",
+      name: "Dr. Taylor Bennett",
       role: "PHYSICIAN",
     },
     generatedAt: SYNTHETIC_NOW,
     lastSuccessfulSync: "2026-09-07T06:45:00.000Z",
-    totals: buildDashboardTotals(synthesized.map((s) => s.rounding)),
+    totals: buildDashboardTotals(worklist.map((s) => s.rounding)),
   });
 
 export function getSyntheticPatient(
@@ -303,9 +331,19 @@ export const roundingFacilities: string[] = [
   ...new Set(synthesized.map((s) => s.rounding.facility)),
 ].sort();
 
-/** Every synthetic rounding candidate, already ordered by clinical urgency. */
+/** Whether a resident needs a visit today: a rule fired, or they were carried forward unseen. */
+export function isOnTodaysList(patient: RoundingPatient): boolean {
+  return patient.signals.length > 0 || patient.carryForward;
+}
+
+/** Every resident in the census (each provider's caseload), ordered by clinical urgency. */
+export const syntheticResidents: readonly RoundingPatient[] = synthesized.map(
+  (s) => s.rounding,
+);
+
+/** Today's rounding candidates (the worklist), ordered by clinical urgency. */
 export const syntheticRoundingCandidates: readonly RoundingPatient[] =
-  synthesized.map((s) => s.rounding);
+  worklist.map((s) => s.rounding);
 
 /** How many top-urgency patients the dashboard "who to see first" chart carries. */
 export const TOP_QUEUE_SIZE = 15;
@@ -388,5 +426,5 @@ export function buildQueueInsights(
 }
 
 export const syntheticQueueInsights: QueueInsightsResponse = buildQueueInsights(
-  synthesized.map((s) => s.rounding),
+  worklist.map((s) => s.rounding),
 );

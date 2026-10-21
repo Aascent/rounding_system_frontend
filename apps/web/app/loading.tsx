@@ -5,7 +5,7 @@ export default function Loading() {
     <RouteState
       kicker="Please wait"
       title="Loading workspace"
-      description="Preparing the requested synthetic data view."
+      description="Preparing the requested view."
       role="status"
       live="polite"
     >

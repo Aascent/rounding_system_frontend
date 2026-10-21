@@ -5,7 +5,7 @@ import type { SignalEvaluator } from "../types.js";
 type Change = Readonly<{ pct: number; days: number }>;
 
 const describe = (c: Change): string =>
-  `${c.pct >= 0 ? "+" : ""}${c.pct.toFixed(1)}% over ${c.days}d (${c.pct >= 0 ? "gain" : "loss"})`;
+  `${c.pct >= 0 ? "gain" : "loss"} of ${Math.abs(c.pct).toFixed(1)}% in ${c.days} days`;
 
 /**
  * Weight change. Acute (short window) takes precedence over chronic (long
@@ -45,7 +45,7 @@ export const weightEvaluator: SignalEvaluator = ({ input, cfg }) => {
             ? "CRITICAL"
             : "WARNING",
         label: "Acute weight change",
-        evidence: `Acute weight ${describe(acute)}.`,
+        evidence: `Rapid weight ${describe(acute)}.`,
       } satisfies RuleSignal,
     ];
 
@@ -57,7 +57,7 @@ export const weightEvaluator: SignalEvaluator = ({ input, cfg }) => {
         category: "WEIGHT",
         severity: "WARNING",
         label: "Chronic weight change",
-        evidence: `Chronic weight ${describe(chronic)}.`,
+        evidence: `Gradual weight ${describe(chronic)}.`,
       } satisfies RuleSignal,
     ];
 

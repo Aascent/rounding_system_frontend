@@ -7,7 +7,6 @@ import {
   MetricGrid,
   PageContainer,
   PageHeading,
-  SyntheticBadge,
 } from "@/components/page";
 
 export default async function ReportsPage() {
@@ -25,29 +24,28 @@ export default async function ReportsPage() {
         kicker="Provider reports"
         title="Daily rounding summary"
         description="Operational reporting only; advanced analytics remain outside V1."
-        actions={<SyntheticBadge />}
       />
       <MetricGrid>
         <MetricCard
-          label="Your patients"
+          label="On your list today"
           value={dashboard.totals.patients}
           hint="Current run"
         />
         <MetricCard
-          label="High priority"
+          label="See first"
           value={dashboard.totals.highPriority}
-          hint="Review first"
+          hint="Urgent findings"
         />
         <MetricCard
-          label="Carried forward"
+          label="Carried over"
           value={dashboard.totals.carryForward}
-          hint="Requires follow-up"
+          hint="Not seen yesterday"
         />
         <MetricCard
           label="Last sync"
           value="6:45"
           valueClassName="text-[2rem]"
-          hint="UTC · synthetic"
+          hint="UTC"
         />
       </MetricGrid>
 
@@ -61,9 +59,9 @@ export default async function ReportsPage() {
               centerLabel={dashboard.totals.patients.toLocaleString()}
               centerSublabel="patients"
               segments={[
-                { label: "High", value: p.HIGH, tone: "danger" },
-                { label: "Medium", value: p.MEDIUM, tone: "warning" },
-                { label: "Low", value: p.LOW, tone: "success" },
+                { label: "See first", value: p.HIGH, tone: "danger" },
+                { label: "See today", value: p.MEDIUM, tone: "warning" },
+                { label: "Routine visit", value: p.LOW, tone: "success" },
               ]}
             />
           </CardContent>

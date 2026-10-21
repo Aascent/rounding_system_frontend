@@ -78,12 +78,12 @@ export function AuditSection({ events }: Readonly<{ events: AuditEvent[] }>) {
     <Panel>
       <PanelHeading
         title="Audit log"
-        description="Synthetic operational events with no patient data."
+        description="Operational and administrative events. No clinical payloads are recorded."
         action={
           <Button
             type="button"
             size="sm"
-            onClick={() => downloadCsv(toCsv(filtered), "synthetic-audit.csv")}
+            onClick={() => downloadCsv(toCsv(filtered), "audit-log.csv")}
           >
             Export CSV
           </Button>
