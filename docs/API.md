@@ -74,7 +74,7 @@ Names below are capability contracts, not final URLs.
 
 ## Machine-readable contract (OpenAPI)
 
-While `DATA_MODE=synthetic`, the running API serves an OpenAPI 3.1 document at `GET /api/v1/openapi.json` (public, no PHI). Component schemas are generated from the shared Zod contracts in `packages/contracts`, and `apps/api/src/docs/openapi.test.ts` fails the build if any controller route is missing from the document (or documented but not implemented). Paths remain provisional until Phase 1 sandbox validation.
+While `DATA_MODE=synthetic`, the running API serves an OpenAPI 3.1 document at `GET /api/v1/openapi.json` (public, no PHI). Component schemas are generated from the shared Zod contracts in `packages/contracts`, and `apps/api/src/docs/openapi.test.ts` fails the build if any controller route is missing from the document (or documented but not implemented). Paths remain provisional until Phase 1 sandbox validation. Authentication is a session cookie (`sr_session`) issued by `POST /auth/login`; every other route requires it, and provider routes derive their scope from the session, never from parameters.
 
 ### Rounding list query
 

@@ -11,10 +11,12 @@ import {
 import { NotebookPen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useSyntheticSession } from "@/app/app-shell";
+import { useUserSession } from "@/app/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ApiError, apiFetch } from "@/lib/api-client";
+import { usesBackend } from "@/lib/backend";
 
 const storageKey = (patientId: string) =>
   `smart-rounding.visit-notes.${patientId}`;
@@ -58,11 +60,30 @@ const roleLabel = {
 } as const;
 
 export function VisitNotes({ patientId }: Readonly<{ patientId: string }>) {
-  const session = useSyntheticSession();
+  const session = useUserSession();
   const [notes, setNotes] = useState<VisitNote[] | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState("");
 
-  useEffect(() => setNotes(readNotes(patientId)), [patientId]);
+  useEffect(() => {
+    if (!usesBackend) {
+      setNotes(readNotes(patientId));
+      return;
+    }
+    let cancelled = false;
+    apiFetch<VisitNote[]>(
+      `/provider/patients/${encodeURIComponent(patientId)}/notes`,
+    )
+      .then((rows) => {
+        if (!cancelled) setNotes(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setNotes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
 
   const {
     register,
@@ -79,8 +100,27 @@ export function VisitNotes({ patientId }: Readonly<{ patientId: string }>) {
   const canAuthor =
     session?.role === "PHYSICIAN" || session?.role === "NURSE_PRACTITIONER";
 
-  function addNote(values: VisitNoteDraft) {
+  async function addNote(values: VisitNoteDraft) {
     if (!canAuthor || !session) return;
+    setSaveError("");
+    if (usesBackend) {
+      try {
+        const saved = await apiFetch<VisitNote>(
+          `/provider/patients/${encodeURIComponent(patientId)}/notes`,
+          { method: "POST", body: { note: values.note } },
+        );
+        setNotes((current) => [saved, ...(current ?? [])]);
+        setJustAddedId(saved.id);
+        reset({ note: "" });
+      } catch (caught) {
+        setSaveError(
+          caught instanceof ApiError
+            ? caught.message
+            : "The note could not be saved.",
+        );
+      }
+      return;
+    }
     const entry = visitNoteSchema.parse({
       id: newNoteId(),
       patientId,
@@ -143,6 +183,11 @@ export function VisitNotes({ patientId }: Readonly<{ patientId: string }>) {
             />
             <div className="flex items-center justify-between gap-3">
               <span aria-live="polite">
+                {saveError && (
+                  <small className="text-xs font-bold text-destructive">
+                    {saveError}
+                  </small>
+                )}
                 {errors.note && (
                   <small className="text-xs font-bold text-destructive">
                     {errors.note.message}
@@ -172,7 +217,9 @@ export function VisitNotes({ patientId }: Readonly<{ patientId: string }>) {
           </p>
         )}
         <p className="mt-3 text-[0.72rem] text-muted-foreground">
-          Saved in this browser only — not synced to other devices.
+          {usesBackend
+            ? "Saved to the patient record for your care team."
+            : "Saved in this browser only — not synced to other devices."}
         </p>
       </div>
 

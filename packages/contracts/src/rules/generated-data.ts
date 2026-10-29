@@ -346,7 +346,7 @@ export function generateSyntheticPatients(
         ? "Recently admitted; initial physician visit pending."
         : isRehab
           ? "Short-term rehabilitation stay with therapy several times a week."
-          : "Long-term care resident on routine monthly physician visits.",
+          : "Long-term care patient on routine monthly physician visits.",
     });
   }
   return out;

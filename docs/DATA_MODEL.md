@@ -2,7 +2,9 @@
 
 ## Status
 
-This is a conceptual V1 model inferred directly from the proposal's features and audit requirements. It is not a final physical schema. PCC field availability, identifiers, cardinalities, and null behavior must be validated in Phase 1 before migrations are designed.
+This is a conceptual V1 model inferred directly from the proposal's features and audit requirements. It is not a final physical schema. PCC field availability, identifiers, cardinalities, and null behavior must be validated in Phase 1 before the production migrations are designed.
+
+A provisional physical schema for the synthetic-data build lives in `apps/api/src/database/migrations.ts` (facilities, users, sessions, facility_coverage, patients with the normalised source record as JSONB, thresholds + threshold_history, keywords, rules, audit_events, sync_runs, rule_executions, visit_notes). It is shaped around today's synthetic source record and will be revised once PCC mappings are confirmed; it is not a PHI-approved schema.
 
 ## Core entities
 

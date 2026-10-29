@@ -25,11 +25,14 @@ export function UsersSection({
   onAddUser,
   onRoleChange,
   onToggleStatus,
+  onResetPassword,
 }: Readonly<{
   users: ManagedUser[];
   onAddUser: () => void;
   onRoleChange: (user: ManagedUser, role: ManagedUser["role"]) => void;
   onToggleStatus: (user: ManagedUser) => void;
+  /** Issue a one-time password (backend only). */
+  onResetPassword?: (user: ManagedUser) => void;
 }>) {
   const [page, setPage] = useState(1);
   const pageData = paginate(users, { page, pageSize: 25 });
@@ -72,14 +75,26 @@ export function UsersSection({
               </TableCell>
               <TableCell>{item.status}</TableCell>
               <TableCell>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onToggleStatus(item)}
-                >
-                  {item.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onToggleStatus(item)}
+                  >
+                    {item.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                  </Button>
+                  {onResetPassword && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onResetPassword(item)}
+                    >
+                      Reset password
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

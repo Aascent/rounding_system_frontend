@@ -45,7 +45,7 @@ export default async function NpRosterPage() {
       <PageHeading
         kicker="Provider dashboard"
         title="Nurse practitioner list"
-        description="The nurse practitioners covering your facilities and the rest of the practice. Open one to review their residents."
+        description="The nurse practitioners covering your facilities and the rest of the practice. Open one to review their patients."
       />
       <p
         role="note"
@@ -69,7 +69,7 @@ export default async function NpRosterPage() {
           hint="Active staff"
         />
         <MetricCard
-          label="Residents covered"
+          label="Patients covered"
           value={totals.patients}
           hint="Summed across every NP"
         />
@@ -102,9 +102,9 @@ export default async function NpRosterPage() {
               <TableRow className="border-0">
                 <TableHead scope="col">Nurse practitioner</TableHead>
                 <TableHead scope="col">Status</TableHead>
-                <TableHead scope="col">Residents</TableHead>
+                <TableHead scope="col">Patients</TableHead>
                 <TableHead scope="col">Visits today</TableHead>
-                <TableHead scope="col">See first</TableHead>
+                <TableHead scope="col">High priority</TableHead>
                 <TableHead scope="col">Overdue</TableHead>
                 <TableHead scope="col">
                   <span className="sr-only">Open</span>

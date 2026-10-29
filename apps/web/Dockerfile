@@ -7,6 +7,7 @@ COPY packages/contracts/package.json packages/contracts/package.json
 RUN npm ci --ignore-scripts
 COPY apps/web apps/web
 COPY packages/contracts packages/contracts
+COPY tools tools
 RUN npm run build --workspace @smart-rounding/contracts && npm run build --workspace @smart-rounding/web
 
 FROM node:24.15.0-alpine AS runtime

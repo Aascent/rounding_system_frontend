@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
@@ -59,6 +60,7 @@ export function RoundingListView({
   querySansPage,
   scopeLabel = "in your list",
   visitFor,
+  backLink,
 }: Readonly<{
   title: string;
   description: string;
@@ -74,6 +76,8 @@ export function RoundingListView({
   scopeLabel?: string;
   /** Whose visits the "Visit today" marker shows (the viewer's role). */
   visitFor?: "PHYSICIAN" | "NURSE_PRACTITIONER";
+  /** Optional "Back to …" link above the heading (e.g. an NP's caseload). */
+  backLink?: Readonly<{ href: Route; label: string }>;
 }>) {
   const linkCls = "font-bold text-primary underline-offset-2 hover:underline";
   const { totals } = pageData;
@@ -84,6 +88,16 @@ export function RoundingListView({
 
   return (
     <PageContainer>
+      {backLink && (
+        <nav className="border-b border-border py-4" aria-label="Breadcrumb">
+          <Link
+            href={backLink.href}
+            className="font-bold text-primary underline-offset-2 hover:underline"
+          >
+            ← Back to {backLink.label}
+          </Link>
+        </nav>
+      )}
       <PageHeading
         kicker="Provider dashboard"
         title={title}
@@ -99,7 +113,7 @@ export function RoundingListView({
         <MetricCard
           label="Need a visit today"
           value={totals.today}
-          hint={`${totals.highPriority} to see first`}
+          hint={`${totals.highPriority} high priority`}
         />
         <MetricCard
           label="Visits overdue"
@@ -121,7 +135,7 @@ export function RoundingListView({
           <div>
             <Kicker className="mb-1">Caseload</Kicker>
             <h2 id="rounding-list-heading" className="text-xl font-semibold">
-              Residents
+              Patients
             </h2>
           </div>
           <span className="text-sm text-muted-foreground">
@@ -142,7 +156,7 @@ export function RoundingListView({
             <TableHeader>
               <TableRow className="border-0">
                 <TableHead scope="col">Patient</TableHead>
-                <TableHead scope="col">Urgency</TableHead>
+                <TableHead scope="col">Priority</TableHead>
                 <TableHead scope="col">Visit timing</TableHead>
                 <TableHead scope="col">Class / signals</TableHead>
                 <TableHead scope="col">Payer / status</TableHead>

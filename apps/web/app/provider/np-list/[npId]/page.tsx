@@ -33,7 +33,7 @@ export default async function NpPatientsPage({
   return (
     <RoundingListView
       title={`${np.name}'s patients`}
-      description={`Every resident in ${np.name}'s caseload. Those who need an NP visit today are marked.`}
+      description={`Every patient in ${np.name}'s caseload. Those who need an NP visit today are marked.`}
       basePath={`/provider/np-list/${npId}`}
       pageData={pageData}
       filters={parsed.filters}
@@ -41,6 +41,7 @@ export default async function NpPatientsPage({
       querySansPage={parsed.querySansPage}
       scopeLabel={`in ${np.name}'s caseload`}
       visitFor="NURSE_PRACTITIONER"
+      backLink={{ href: "/provider/np-list", label: "nurse practitioner list" }}
     />
   );
 }

@@ -2,6 +2,8 @@ import type {
   KeywordEntry,
   ManagedUser,
   SyncStatus,
+  FacilitySummary,
+  SyncHistory,
 } from "@smart-rounding/contracts";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +17,10 @@ import {
 } from "@/components/ui/table";
 import { MetricCard, MetricGrid } from "@/components/page";
 import {
-  FACILITIES,
-  JOB_HISTORY,
   JOB_HISTORY_COLUMNS,
-  LISTED_TODAY,
   SYSTEM_STATUS,
+  formatRunTime,
+  jobHistoryRows,
 } from "./fixtures";
 import { AddButton, KeywordToggle, Panel, PanelHeading } from "./ui";
 
@@ -29,7 +30,9 @@ export function DashboardSection({
   users,
   keywords,
   sync,
-  patientsToday,
+  census,
+  facilities,
+  history,
   onAddUser,
   onAddKeyword,
   onToggleKeyword,
@@ -37,7 +40,9 @@ export function DashboardSection({
   users: ManagedUser[];
   keywords: KeywordEntry[];
   sync: SyncStatus;
-  patientsToday: number;
+  census: Readonly<{ patients: number; onListsToday: number }>;
+  facilities: readonly FacilitySummary[];
+  history: SyncHistory;
   onAddUser: () => void;
   onAddKeyword: () => void;
   onToggleKeyword: (id: string) => void;
@@ -53,14 +58,17 @@ export function DashboardSection({
         />
         <MetricCard
           label="Last job run"
-          value="6:45 AM"
+          value={formatRunTime(
+            history.find((run) => run.status !== "RUNNING")?.completedAt ??
+              null,
+          )}
           valueClassName="text-2xl"
           hint="Daily synchronization"
         />
         <MetricCard
           label="Total patients"
-          value={patientsToday.toLocaleString("en-US")}
-          hint={`${LISTED_TODAY.toLocaleString("en-US")} on today's rounding lists`}
+          value={census.patients.toLocaleString("en-US")}
+          hint={`${census.onListsToday.toLocaleString("en-US")} on today's rounding lists`}
         />
         <MetricCard
           label="Active keywords"
@@ -159,7 +167,7 @@ export function DashboardSection({
             }
           />
           <ul className="mt-3">
-            {FACILITIES.map(([name, address, patients]) => (
+            {facilities.map(({ name, address, patients }) => (
               <li
                 key={name}
                 className="flex items-center justify-between gap-3 border-t border-border px-1 py-2.5"
@@ -189,6 +197,10 @@ export function DashboardSection({
           />
           <ul className="mt-3">
             {[
+              [
+                "EMR connection",
+                `Connected · last sync ${formatRunTime(sync.completedAt ?? sync.startedAt)}`,
+              ] as const,
               ...SYSTEM_STATUS,
               [
                 "Daily job",
@@ -228,10 +240,10 @@ export function DashboardSection({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {JOB_HISTORY.map((run) => (
-              <TableRow key={run[0]}>
+            {jobHistoryRows(history).map((run, row) => (
+              <TableRow key={history[row]?.id ?? row}>
                 {run.map((value, index) => (
-                  <TableCell key={`${run[0]}-${index}`}>{value}</TableCell>
+                  <TableCell key={index}>{value}</TableCell>
                 ))}
               </TableRow>
             ))}

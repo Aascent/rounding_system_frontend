@@ -93,22 +93,22 @@ export function RoundingFilters({
           value={values.visit}
           onValueChange={(v) => apply({ visit: v })}
           options={[
-            { value: "ALL", label: "All residents" },
+            { value: "ALL", label: "All patients" },
             { value: "TODAY", label: "Needs a visit today" },
           ]}
         />
       </Label>
       <Label>
-        <span>Urgency</span>
+        <span>Priority</span>
         <SelectField
-          ariaLabel="Urgency"
+          ariaLabel="Priority"
           value={values.priority}
           onValueChange={(v) => apply({ priority: v })}
           options={[
-            { value: "ALL", label: "All" },
-            { value: "HIGH", label: "See first" },
-            { value: "MEDIUM", label: "See today" },
-            { value: "LOW", label: "Routine" },
+            { value: "ALL", label: "All priorities" },
+            { value: "HIGH", label: "High" },
+            { value: "MEDIUM", label: "Medium" },
+            { value: "LOW", label: "Low" },
           ]}
         />
       </Label>
@@ -159,7 +159,7 @@ export function RoundingFilters({
           onValueChange={(v) => apply({ sort: v })}
           options={[
             { value: "URGENCY", label: "Urgency score" },
-            { value: "PRIORITY", label: "Urgency band" },
+            { value: "PRIORITY", label: "Priority (High to Low)" },
             { value: "NAME", label: "Patient name" },
             { value: "ADMISSION", label: "Days since admission" },
             { value: "LAST_VISIT", label: "Oldest physician visit" },

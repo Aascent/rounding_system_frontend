@@ -17,11 +17,18 @@ export function complianceTone(status: string): StatusTone {
   return "success";
 }
 
-/** Plain-language urgency bands, used everywhere a priority is shown. */
+/** Priority bands as the proposal names them, used everywhere a priority is shown. */
 export const priorityLabels: Record<string, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+/** What each priority band means for the provider. */
+export const priorityHints: Record<string, string> = {
   HIGH: "See first",
   MEDIUM: "See today",
-  LOW: "Routine",
+  LOW: "Routine visit",
 };
 
 export const complianceLabels: Record<string, string> = {

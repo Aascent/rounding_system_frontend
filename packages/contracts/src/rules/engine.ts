@@ -1,5 +1,6 @@
 import type { RuleSignal } from "../schemas.js";
 import { illustrativeRuleConfig, type RuleConfig } from "./config.js";
+import { isSignalDisabled } from "./catalog.js";
 import { classify } from "./evaluators/classification.js";
 import { evaluateCompliance } from "./evaluators/compliance.js";
 import { signalEvaluators } from "./evaluators/index.js";
@@ -57,10 +58,11 @@ export function evaluatePatient(
     daysSincePhysicianVisit,
   });
 
+  const disabled = cfg.disabledSignalCodes ?? [];
   const signals: RuleSignal[] = [
     ...(compliance.signal ? [compliance.signal] : []),
     ...signalEvaluators.flatMap((evaluate) => evaluate(ctx)),
-  ];
+  ].filter((signal) => !isSignalDisabled(signal.code, disabled));
 
   const urgencyScore = scoreSignals(
     signals,

@@ -2,10 +2,30 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:api"],
+      "port": 3001
+    },
+    {
       "name": "web",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace", "@smart-rounding/web"],
       "port": 3000
+    },
+    {
+      "name": "web-backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "@smart-rounding/web",
+        "--",
+        "-p",
+        "3002"
+      ],
+      "port": 3002
     }
   ]
 }

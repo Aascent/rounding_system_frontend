@@ -43,7 +43,9 @@ const errorCls = "text-xs font-bold text-destructive";
 
 export function UserForm({
   onSubmit,
-}: Readonly<{ onSubmit: (values: UserFormValues) => boolean }>) {
+}: Readonly<{
+  onSubmit: (values: UserFormValues) => boolean | Promise<boolean>;
+}>) {
   const {
     register,
     control,
@@ -59,8 +61,8 @@ export function UserForm({
       className={formCls}
       noValidate
       onSubmit={(event) =>
-        void handleSubmit((values) => {
-          if (onSubmit(values)) reset();
+        void handleSubmit(async (values) => {
+          if (await onSubmit(values)) reset();
         })(event)
       }
     >
@@ -116,7 +118,9 @@ export function UserForm({
 
 export function KeywordForm({
   onSubmit,
-}: Readonly<{ onSubmit: (values: KeywordFormValues) => boolean }>) {
+}: Readonly<{
+  onSubmit: (values: KeywordFormValues) => boolean | Promise<boolean>;
+}>) {
   const {
     register,
     control,
@@ -132,8 +136,8 @@ export function KeywordForm({
       className={formCls}
       noValidate
       onSubmit={(event) =>
-        void handleSubmit((values) => {
-          if (onSubmit(values)) reset();
+        void handleSubmit(async (values) => {
+          if (await onSubmit(values)) reset();
         })(event)
       }
     >

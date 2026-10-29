@@ -12,6 +12,20 @@ import {
   thresholdSchema,
   thresholdUpdateSchema,
   ROUNDING_SORTS,
+  createKeywordRequestSchema,
+  createUserRequestSchema,
+  createUserResponseSchema,
+  facilitySummarySchema,
+  keywordEntrySchema,
+  keywordToggleSchema,
+  loginRequestSchema,
+  ruleStateSchema,
+  ruleToggleSchema,
+  sessionResponseSchema,
+  syncHistorySchema,
+  updateUserRequestSchema,
+  visitNoteCreateSchema,
+  visitNoteSchema,
 } from "@smart-rounding/contracts";
 import { z } from "zod";
 
@@ -46,7 +60,7 @@ const body = (name: string) => ({
 
 const errors = {
   "400": json(ref("ApiError"), "Validation failed"),
-  "401": json(ref("ApiError"), "Missing or invalid bearer token"),
+  "401": json(ref("ApiError"), "Missing, expired or idle session"),
   "403": json(ref("ApiError"), "Role not permitted"),
 };
 
@@ -102,14 +116,32 @@ const roundingFilterParams = [
   queryParam("physicianOnly", "Only patients requiring a physician visit.", {
     type: "boolean",
   }),
+  queryParam("visit", "TODAY keeps only patients who need a visit today.", {
+    enum: ["ALL", "TODAY"],
+  }),
   queryParam("sort", "Sort key (default URGENCY).", {
     enum: [...ROUNDING_SORTS],
   }),
 ];
 
+const arrayOf = (name: string) => ({ type: "array", items: ref(name) });
+const roundingPage = {
+  allOf: [
+    paginated("RoundingPatient"),
+    {
+      type: "object",
+      properties: {
+        filtered: { type: "integer" },
+        facilities: { type: "array", items: { type: "string" } },
+        totals: { type: "object" },
+      },
+    },
+  ],
+};
+
 const PROVIDER = ["provider"];
 const ADMIN = ["admin"];
-const bearer = [{ bearerAuth: [] }];
+const bearer = [{ sessionCookie: [] }];
 
 const secured = (op: Operation): Operation => ({ security: bearer, ...op });
 
@@ -139,11 +171,149 @@ const paths: Record<string, Partial<Record<Method, Operation>>> = {
       responses: { "200": { description: "OpenAPI 3.1 document" } },
     },
   },
+  "/auth/login": {
+    post: {
+      summary:
+        "Sign in with email, password and MFA code; sets the HttpOnly session cookie",
+      tags: ["auth"],
+      security: [],
+      requestBody: body("LoginRequest"),
+      responses: { "200": json(ref("SessionResponse")), ...errors },
+    },
+  },
   "/auth/session": {
     get: secured({
-      summary: "Current authenticated session",
+      summary: "Current session (counts as activity)",
       tags: ["auth"],
-      responses: { "200": { description: "Session" }, ...errors },
+      responses: { "200": json(ref("SessionResponse")), ...errors },
+    }),
+  },
+  "/auth/logout": {
+    post: secured({
+      summary: "End the session and clear the cookie",
+      tags: ["auth"],
+      responses: { "204": { description: "Signed out" }, ...errors },
+    }),
+  },
+  "/provider/summary": {
+    get: secured({
+      summary: "Dashboard totals and chart aggregates for today's visits",
+      tags: PROVIDER,
+      responses: { "200": { description: "Dashboard + insights" }, ...errors },
+    }),
+  },
+  "/provider/caseload": {
+    get: secured({
+      summary: "Every patient the signed-in provider covers",
+      tags: PROVIDER,
+      parameters: [...roundingFilterParams, ...pagingParams],
+      responses: { "200": json(roundingPage), ...errors },
+    }),
+  },
+  "/provider/patients/{id}/notes": {
+    get: secured({
+      summary: "Visit notes for a patient, newest first",
+      tags: PROVIDER,
+      parameters: [pathParam("id")],
+      responses: { "200": json(arrayOf("VisitNote")), ...errors },
+    }),
+    post: secured({
+      summary: "Add a visit note",
+      tags: PROVIDER,
+      parameters: [pathParam("id")],
+      requestBody: body("VisitNoteCreate"),
+      responses: { "201": json(ref("VisitNote")), ...errors },
+    }),
+  },
+  "/provider/np-roster": {
+    get: secured({
+      summary: "Physician oversight: active NPs and their caseloads",
+      tags: PROVIDER,
+      responses: { "200": { description: "NP roster" }, ...errors },
+    }),
+  },
+  "/provider/np-roster/{npId}": {
+    get: secured({
+      summary: "One NP's roster entry",
+      tags: PROVIDER,
+      parameters: [pathParam("npId")],
+      responses: { "200": { description: "NP roster entry" }, ...errors },
+    }),
+  },
+  "/provider/np-roster/{npId}/caseload": {
+    get: secured({
+      summary: "One NP's caseload",
+      tags: PROVIDER,
+      parameters: [pathParam("npId"), ...roundingFilterParams, ...pagingParams],
+      responses: { "200": json(roundingPage), ...errors },
+    }),
+  },
+  "/admin/overview": {
+    get: secured({
+      summary: "Everything the admin workspace loads up front",
+      tags: ADMIN,
+      responses: { "200": { description: "Admin overview" }, ...errors },
+    }),
+  },
+  "/admin/users/{id}/reset-password": {
+    post: secured({
+      summary:
+        "Issue a one-time temporary password and end the user's sessions",
+      tags: ADMIN,
+      parameters: [pathParam("id")],
+      responses: { "200": { description: "Temporary password" }, ...errors },
+    }),
+  },
+  "/admin/keywords": {
+    get: secured({
+      summary: "Keyword library",
+      tags: ADMIN,
+      responses: { "200": json(arrayOf("KeywordEntry")), ...errors },
+    }),
+    post: secured({
+      summary: "Add a keyword",
+      tags: ADMIN,
+      requestBody: body("CreateKeywordRequest"),
+      responses: { "201": json(ref("KeywordEntry")), ...errors },
+    }),
+  },
+  "/admin/keywords/{id}": {
+    patch: secured({
+      summary: "Switch a keyword on or off",
+      tags: ADMIN,
+      parameters: [pathParam("id")],
+      requestBody: body("KeywordToggle"),
+      responses: { "200": json(ref("KeywordEntry")), ...errors },
+    }),
+  },
+  "/admin/rules": {
+    get: secured({
+      summary: "Rule catalogue with active state",
+      tags: ADMIN,
+      responses: { "200": json(arrayOf("RuleState")), ...errors },
+    }),
+  },
+  "/admin/rules/{id}": {
+    patch: secured({
+      summary: "Switch a clinical rule on or off (regulatory rules are locked)",
+      tags: ADMIN,
+      parameters: [pathParam("id")],
+      requestBody: body("RuleToggle"),
+      responses: { "200": json(ref("RuleState")), ...errors },
+    }),
+  },
+  "/admin/sync/history": {
+    get: secured({
+      summary: "Recent synchronization runs",
+      tags: ADMIN,
+      responses: { "200": json(ref("SyncHistory")), ...errors },
+    }),
+  },
+  "/admin/facilities": {
+    get: secured({
+      summary: "Facilities with patient counts and provider coverage",
+      tags: ADMIN,
+      responses: { "200": json(arrayOf("FacilitySummary")), ...errors },
     }),
   },
   "/provider/dashboard": {
@@ -193,7 +363,7 @@ const paths: Record<string, Partial<Record<Method, Operation>>> = {
               },
             ],
           },
-          "Hard-scoped server-side to the caller's role: PHYSICIAN sees patients whose signals require a physician visit; NURSE_PRACTITIONER sees the rest. The scope comes from the authenticated principal, never from a query parameter.",
+          "Today's visits, hard-scoped server-side to the signed-in provider (their own patients; physicians get physician-required visits, NPs the rest). The scope comes from the session, never from a query parameter.",
         ),
         ...errors,
       },
@@ -247,8 +417,8 @@ const paths: Record<string, Partial<Record<Method, Operation>>> = {
     post: secured({
       summary: "Create a user",
       tags: ADMIN,
-      requestBody: body("ManagedUserInput"),
-      responses: { "201": json(ref("ManagedUser")), ...errors },
+      requestBody: body("CreateUserRequest"),
+      responses: { "201": json(ref("CreateUserResponse")), ...errors },
     }),
   },
   "/admin/users/{id}": {
@@ -256,15 +426,21 @@ const paths: Record<string, Partial<Record<Method, Operation>>> = {
       summary: "Update a user (role, active state)",
       tags: ADMIN,
       parameters: [pathParam("id")],
-      requestBody: body("ManagedUserInput"),
+      requestBody: body("UpdateUserRequest"),
       responses: { "200": json(ref("ManagedUser")), ...errors },
     }),
   },
   "/admin/audit": {
     get: secured({
-      summary: "Audit events (paginated)",
+      summary: "Audit events (paginated, filterable)",
       tags: ADMIN,
-      parameters: pagingParams,
+      parameters: [
+        queryParam("q", "Text search over actor, event type and summary."),
+        queryParam("eventType", "Exact event type."),
+        queryParam("actor", "Exact actor name."),
+        queryParam("date", "Day, YYYY-MM-DD (UTC)."),
+        ...pagingParams,
+      ],
       responses: { "200": json(paginated("AuditEvent")), ...errors },
     }),
   },
@@ -312,7 +488,7 @@ export function buildOpenApiDocument(version: string) {
     paths,
     components: {
       securitySchemes: {
-        bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+        sessionCookie: { type: "apiKey", in: "cookie", name: "sr_session" },
       },
       schemas: {
         ApiError: toSchema(apiErrorSchema),
@@ -325,7 +501,20 @@ export function buildOpenApiDocument(version: string) {
         Threshold: toSchema(thresholdSchema),
         ThresholdUpdate: toSchema(thresholdUpdateSchema),
         ManagedUser: toSchema(managedUserSchema),
-        ManagedUserInput: toSchema(managedUserSchema.omit({ id: true })),
+        CreateUserRequest: toSchema(createUserRequestSchema),
+        CreateUserResponse: toSchema(createUserResponseSchema),
+        UpdateUserRequest: toSchema(updateUserRequestSchema),
+        LoginRequest: toSchema(loginRequestSchema),
+        SessionResponse: toSchema(sessionResponseSchema),
+        KeywordEntry: toSchema(keywordEntrySchema),
+        CreateKeywordRequest: toSchema(createKeywordRequestSchema),
+        KeywordToggle: toSchema(keywordToggleSchema),
+        RuleState: toSchema(ruleStateSchema),
+        RuleToggle: toSchema(ruleToggleSchema),
+        FacilitySummary: toSchema(facilitySummarySchema),
+        SyncHistory: toSchema(syncHistorySchema),
+        VisitNote: toSchema(visitNoteSchema),
+        VisitNoteCreate: toSchema(visitNoteCreateSchema),
         AuditEvent: toSchema(auditEventSchema),
         SyncStatus: toSchema(syncStatusSchema),
       },

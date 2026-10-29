@@ -375,7 +375,9 @@ export function FacilityLoadChart({
                 label={label}
                 payload={payload?.map((p) => ({
                   name:
-                    p.name === "highPriority" ? "See first" : "Patients today",
+                    p.name === "highPriority"
+                      ? "High priority"
+                      : "Patients today",
                   value: p.value as number,
                   color:
                     p.name === "highPriority"
@@ -426,7 +428,7 @@ export function FacilityLoadChart({
             className="size-2.5 rounded-full"
             style={{ background: TONE_VAR.danger }}
           />
-          See first
+          High priority
         </li>
       </ul>
     </div>

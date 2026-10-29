@@ -55,5 +55,5 @@ void test("every controller route is documented, and nothing extra is", () => {
 void test("component schemas are generated from the contracts", () => {
   const { components } = buildOpenApiDocument("test");
   assert.ok("RoundingPatient" in components.schemas);
-  assert.ok("ManagedUserInput" in components.schemas);
+  assert.ok("CreateUserRequest" in components.schemas);
 });

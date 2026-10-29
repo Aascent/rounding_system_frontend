@@ -95,7 +95,7 @@ const CORE_USERS: ManagedUser[] = [
   {
     id: "user-001",
     name: "Dr. Taylor Bennett",
-    email: "taylor@example.invalid",
+    email: "provider@smart-rounding.test",
     role: "PHYSICIAN",
     status: "ACTIVE",
     providerId: "provider-001",
@@ -103,7 +103,7 @@ const CORE_USERS: ManagedUser[] = [
   {
     id: "user-002",
     name: "Casey Holt",
-    email: "casey@example.invalid",
+    email: "np@smart-rounding.test",
     role: "NURSE_PRACTITIONER",
     status: "ACTIVE",
     providerId: "provider-002",
@@ -111,7 +111,7 @@ const CORE_USERS: ManagedUser[] = [
   {
     id: "user-003",
     name: "Alex Reyes",
-    email: "admin@example.invalid",
+    email: "admin@smart-rounding.test",
     role: "ADMIN",
     status: "ACTIVE",
     providerId: null,
@@ -233,7 +233,7 @@ const CORE_AUDIT: AuditEvent[] = [
     actor: "System",
     eventType: "LIST_GENERATED",
     outcome: "SUCCESS",
-    summary: `Generated ${CANDIDATE_COUNT} rounding candidates from ${PATIENT_COUNT} residents across ${roundingFacilities.length} facilities`,
+    summary: `Generated ${CANDIDATE_COUNT} rounding candidates from ${PATIENT_COUNT} patients across ${roundingFacilities.length} facilities`,
   },
   {
     id: "audit-0003",
@@ -330,3 +330,37 @@ export const syntheticSyncStatus: SyncStatus = {
   validationRejects: SYNC_REJECTS,
   errors: 0,
 };
+
+/** The practice's facilities and their street addresses. */
+export const syntheticFacilities: readonly {
+  id: string;
+  name: string;
+  address: string;
+}[] = [
+  {
+    id: "fac-cedar-point",
+    name: "Cedar Point Care",
+    address: "2140 Cedar Point Road",
+  },
+  {
+    id: "fac-lakeside",
+    name: "Lakeside Skilled Nursing",
+    address: "789 Lakeshore Drive",
+  },
+  {
+    id: "fac-maple-grove",
+    name: "Maple Grove Health",
+    address: "315 Maple Grove Parkway",
+  },
+  {
+    id: "fac-northwind",
+    name: "Northwind Care Center",
+    address: "123 Northwind Avenue",
+  },
+  { id: "fac-oak-manor", name: "Oak Manor", address: "456 Oak Manor Street" },
+  {
+    id: "fac-riverside",
+    name: "Riverside Rehabilitation",
+    address: "88 Riverside Boulevard",
+  },
+];

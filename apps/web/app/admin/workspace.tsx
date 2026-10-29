@@ -1,14 +1,18 @@
 "use client";
-import {
-  syntheticKeywordLibrary,
-  type AuditEvent,
-  type ManagedUser,
-  type SyncStatus,
-  type Threshold,
+import type {
+  CreateUserResponse,
+  KeywordEntry,
+  ManagedUser,
+  RuleState,
+  SyncStatus,
+  Threshold,
 } from "@smart-rounding/contracts";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageContainer, PageHeading } from "@/components/page";
+import { ApiError, apiFetch } from "@/lib/api-client";
+import type { AdminData } from "@/lib/application-data";
+import { usesBackend } from "@/lib/backend";
 import {
   KeywordForm,
   UserForm,
@@ -20,6 +24,7 @@ import { AuditSection } from "./sections/audit";
 import { DashboardSection } from "./sections/dashboard";
 import { FacilitiesSection } from "./sections/facilities";
 import { KeywordsSection } from "./sections/keywords";
+import { RulesSection } from "./sections/rules";
 import { SystemSection } from "./sections/system";
 import { ThresholdsSection } from "./sections/thresholds";
 import { DescRow } from "./sections/ui";
@@ -28,6 +33,7 @@ import { UsersSection } from "./sections/users";
 export type AdminSection =
   | "dashboard"
   | "thresholds"
+  | "rules"
   | "users"
   | "keywords"
   | "facilities"
@@ -35,40 +41,78 @@ export type AdminSection =
   | "system";
 
 type Props = Readonly<{
-  initialThresholds: Threshold[];
-  initialUsers: ManagedUser[];
-  auditEvents: AuditEvent[];
-  initialSync: SyncStatus;
+  data: AdminData;
   initialSection: AdminSection;
 }>;
 
+const SYNC_POLL_MS = 1500;
+/** The demo has no server, so its "sync" just completes after this long. */
+const DEMO_SYNC_MS = 2500;
+
+const errorText = (caught: unknown) =>
+  caught instanceof ApiError
+    ? caught.message
+    : "Something went wrong. Please try again.";
+
 export function AdminWorkspace({
-  initialThresholds,
-  initialUsers,
-  auditEvents,
-  initialSync,
+  data: initial,
   initialSection: section,
 }: Props) {
-  const [thresholds, setThresholds] = useState(initialThresholds);
-  const [users, setUsers] = useState(initialUsers);
-  const [keywords, setKeywords] = useState(syntheticKeywordLibrary);
-  const [sync, setSync] = useState(initialSync);
+  const [data, setData] = useState<AdminData>(initial);
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState<"user" | "keyword" | null>(null);
   const [pendingThreshold, setPendingThreshold] = useState<{
     item: Threshold;
     value: number;
   } | null>(null);
+  const pollTimer = useRef<number | undefined>(undefined);
 
-  function saveThreshold(item: Threshold, value: number) {
+  useEffect(() => () => window.clearTimeout(pollTimer.current), []);
+
+  const patch = (changes: Partial<AdminData>) =>
+    setData((current) => ({ ...current, ...changes }));
+
+  /** Reload everything from the server after a change. */
+  async function refresh(): Promise<void> {
+    setData(await apiFetch<AdminData>("/admin/overview"));
+  }
+
+  /** Run a backend change, then refresh; report failures in the notice. */
+  async function change(
+    request: () => Promise<unknown>,
+    success: string,
+  ): Promise<boolean> {
+    try {
+      await request();
+      await refresh();
+      setNotice(success);
+      return true;
+    } catch (caught) {
+      setNotice(errorText(caught));
+      return false;
+    }
+  }
+
+  async function saveThreshold(item: Threshold, value: number) {
     if (value < item.minimum || value > item.maximum) {
       setNotice(
         `Value must be between ${item.minimum} and ${item.maximum} ${item.unit}.`,
       );
       return;
     }
-    setThresholds((current) =>
-      current.map((c) =>
+    if (usesBackend) {
+      await change(
+        () =>
+          apiFetch(`/admin/thresholds/${item.id}`, {
+            method: "PATCH",
+            body: { value, version: item.version },
+          }),
+        `${item.label} updated. Today's lists were re-evaluated.`,
+      );
+      return;
+    }
+    patch({
+      thresholds: data.thresholds.map((c) =>
         c.id === item.id
           ? {
               ...c,
@@ -78,75 +122,179 @@ export function AdminWorkspace({
             }
           : c,
       ),
-    );
+    });
     setNotice(`${item.label} updated.`);
   }
 
-  function toggleUserStatus(item: ManagedUser) {
-    setUsers((current) =>
-      current.map((c) =>
-        c.id === item.id
-          ? { ...c, status: c.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }
-          : c,
-      ),
-    );
+  async function toggleUserStatus(item: ManagedUser) {
+    const status = item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    if (usesBackend) {
+      await change(
+        () =>
+          apiFetch(`/admin/users/${item.id}`, {
+            method: "PATCH",
+            body: { status },
+          }),
+        `${item.name} ${status === "ACTIVE" ? "activated" : "deactivated"}.`,
+      );
+      return;
+    }
+    patch({
+      users: data.users.map((c) => (c.id === item.id ? { ...c, status } : c)),
+    });
     setNotice(`${item.name} status changed.`);
   }
 
-  function changeUserRole(item: ManagedUser, role: ManagedUser["role"]) {
-    setUsers((current) =>
-      current.map((c) => (c.id === item.id ? { ...c, role } : c)),
-    );
+  async function changeUserRole(item: ManagedUser, role: ManagedUser["role"]) {
+    if (usesBackend) {
+      await change(
+        () =>
+          apiFetch(`/admin/users/${item.id}`, {
+            method: "PATCH",
+            body: { role },
+          }),
+        `${item.name}'s role changed. They will need to sign in again.`,
+      );
+      return;
+    }
+    patch({
+      users: data.users.map((c) => (c.id === item.id ? { ...c, role } : c)),
+    });
     setNotice(`${item.name} role changed.`);
   }
 
-  function toggleKeyword(id: string) {
-    setKeywords((current) =>
-      current.map((c) => (c.id === id ? { ...c, active: !c.active } : c)),
+  async function resetPassword(item: ManagedUser) {
+    try {
+      const result = await apiFetch<{ temporaryPassword: string }>(
+        `/admin/users/${item.id}/reset-password`,
+        { method: "POST" },
+      );
+      await refresh();
+      setNotice(
+        `Temporary password for ${item.name}: ${result.temporaryPassword} — share it securely; it is shown only once.`,
+      );
+    } catch (caught) {
+      setNotice(errorText(caught));
+    }
+  }
+
+  async function toggleKeyword(id: string) {
+    const item = data.keywords.find((k) => k.id === id);
+    if (!item) return;
+    if (usesBackend) {
+      await change(
+        () =>
+          apiFetch(`/admin/keywords/${id}`, {
+            method: "PATCH",
+            body: { active: !item.active },
+          }),
+        `“${item.keyword}” ${item.active ? "disabled" : "enabled"}.`,
+      );
+      return;
+    }
+    patch({
+      keywords: data.keywords.map((c) =>
+        c.id === id ? { ...c, active: !c.active } : c,
+      ),
+    });
+  }
+
+  async function toggleRule(rule: RuleState) {
+    if (usesBackend) {
+      await change(
+        () =>
+          apiFetch(`/admin/rules/${rule.id}`, {
+            method: "PATCH",
+            body: { active: !rule.active },
+          }),
+        `“${rule.name}” ${rule.active ? "switched off" : "switched on"}. Today's lists were re-evaluated.`,
+      );
+      return;
+    }
+    patch({
+      rules: data.rules.map((r) =>
+        r.id === rule.id ? { ...r, active: !r.active } : r,
+      ),
+    });
+    setNotice(
+      `“${rule.name}” ${rule.active ? "switched off" : "switched on"}.`,
     );
   }
 
-  function createUser(values: UserFormValues): boolean {
+  async function createUser(values: UserFormValues): Promise<boolean> {
+    if (usesBackend) {
+      try {
+        const created = await apiFetch<CreateUserResponse>("/admin/users", {
+          method: "POST",
+          body: { ...values, status: "ACTIVE" },
+        });
+        await refresh();
+        setNotice(
+          `${created.user.name} created. Temporary password: ${created.temporaryPassword} — share it securely; it is shown only once.`,
+        );
+        setModal(null);
+        return true;
+      } catch (caught) {
+        setNotice(errorText(caught));
+        return false;
+      }
+    }
     if (
-      users.some((u) => u.email.toLowerCase() === values.email.toLowerCase())
+      data.users.some(
+        (u) => u.email.toLowerCase() === values.email.toLowerCase(),
+      )
     ) {
       setNotice("A user with this email already exists.");
       return false;
     }
     const user: ManagedUser = {
-      id: `user-${String(users.length + 1).padStart(3, "0")}`,
+      id: `user-${String(data.users.length + 1).padStart(3, "0")}`,
       name: values.name,
       email: values.email,
       role: values.role,
       status: "ACTIVE",
       providerId: null,
     };
-    setUsers((current) => [...current, user]);
+    patch({ users: [...data.users, user] });
     setNotice(`${user.name} created.`);
     setModal(null);
     return true;
   }
 
-  function createKeyword(values: KeywordFormValues): boolean {
+  async function createKeyword(values: KeywordFormValues): Promise<boolean> {
+    if (usesBackend) {
+      const ok = await change(
+        () =>
+          apiFetch<KeywordEntry>("/admin/keywords", {
+            method: "POST",
+            body: { ...values, severity: "WARNING" },
+          }),
+        `${values.keyword} added to the keyword library.`,
+      );
+      if (ok) setModal(null);
+      return ok;
+    }
     if (
-      keywords.some(
+      data.keywords.some(
         (k) => k.keyword.toLowerCase() === values.keyword.toLowerCase(),
       )
     ) {
       setNotice("This keyword already exists.");
       return false;
     }
-    setKeywords((current) => [
-      ...current,
-      {
-        id: `kw-${current.length + 1}`,
-        keyword: values.keyword,
-        category: values.category,
-        severity: "WARNING",
-        matches: 0,
-        active: true,
-      },
-    ]);
+    patch({
+      keywords: [
+        ...data.keywords,
+        {
+          id: `kw-${data.keywords.length + 1}`,
+          keyword: values.keyword,
+          category: values.category,
+          severity: "WARNING",
+          matches: 0,
+          active: true,
+        },
+      ],
+    });
     setNotice(`${values.keyword} added to the keyword library.`);
     setModal(null);
     return true;
@@ -157,8 +305,46 @@ export function AdminWorkspace({
     setModal(type);
   }
 
-  function triggerSync() {
-    setSync({
+  async function pollSync() {
+    try {
+      const sync = await apiFetch<SyncStatus>("/admin/sync");
+      if (sync.status === "RUNNING") {
+        patch({ sync });
+        pollTimer.current = window.setTimeout(
+          () => void pollSync(),
+          SYNC_POLL_MS,
+        );
+        return;
+      }
+      await refresh();
+      setNotice(
+        sync.status === "SUCCEEDED"
+          ? `Sync completed: ${sync.recordsProcessed.toLocaleString("en-US")} patients processed.`
+          : "Sync failed. Check the system log and try again.",
+      );
+    } catch (caught) {
+      setNotice(errorText(caught));
+    }
+  }
+
+  async function triggerSync() {
+    if (usesBackend) {
+      try {
+        const sync = await apiFetch<SyncStatus>("/admin/sync", {
+          method: "POST",
+        });
+        patch({ sync });
+        setNotice("Manual sync started.");
+        pollTimer.current = window.setTimeout(
+          () => void pollSync(),
+          SYNC_POLL_MS,
+        );
+      } catch (caught) {
+        setNotice(errorText(caught));
+      }
+      return;
+    }
+    const running: SyncStatus = {
       id: `sync-${Date.now()}`,
       startedAt: new Date().toISOString(),
       completedAt: null,
@@ -167,8 +353,28 @@ export function AdminWorkspace({
       recordsProcessed: 0,
       validationRejects: 0,
       errors: 0,
-    });
+    };
+    patch({ sync: running });
     setNotice("Manual sync started.");
+    pollTimer.current = window.setTimeout(() => {
+      const done: SyncStatus = {
+        ...running,
+        status: "SUCCEEDED",
+        completedAt: new Date().toISOString(),
+        recordsProcessed: data.census.patients,
+      };
+      setData((current) => ({
+        ...current,
+        sync: done,
+        syncHistory: [
+          { ...done, onLists: current.census.onListsToday },
+          ...current.syncHistory,
+        ].slice(0, 7),
+      }));
+      setNotice(
+        `Sync completed: ${data.census.patients.toLocaleString("en-US")} patients processed.`,
+      );
+    }, DEMO_SYNC_MS);
   }
 
   return (
@@ -176,7 +382,7 @@ export function AdminWorkspace({
       <PageHeading
         kicker="Administration"
         title="Operations and controls"
-        description="Manage thresholds, users, audit events, and synchronization status."
+        description="Manage thresholds, rules, users, audit events, and synchronization status."
       />
       {notice && (
         <p
@@ -213,7 +419,10 @@ export function AdminWorkspace({
               <Button
                 type="button"
                 onClick={() => {
-                  saveThreshold(pendingThreshold.item, pendingThreshold.value);
+                  void saveThreshold(
+                    pendingThreshold.item,
+                    pendingThreshold.value,
+                  );
                   setPendingThreshold(null);
                 }}
               >
@@ -226,7 +435,11 @@ export function AdminWorkspace({
       {modal === "user" && (
         <Modal
           title="Add user"
-          description="Create an account and assign its initial role."
+          description={
+            usesBackend
+              ? "Create an account and assign its initial role. A one-time password is shown after saving."
+              : "Create an account and assign its initial role."
+          }
           onClose={() => setModal(null)}
         >
           {notice && (
@@ -254,40 +467,60 @@ export function AdminWorkspace({
 
       {section === "dashboard" && (
         <DashboardSection
-          users={users}
-          keywords={keywords}
-          sync={sync}
-          patientsToday={initialSync.recordsProcessed}
+          users={data.users}
+          keywords={data.keywords}
+          sync={data.sync}
+          census={data.census}
+          facilities={data.facilities}
+          history={data.syncHistory}
           onAddUser={() => openModal("user")}
           onAddKeyword={() => openModal("keyword")}
-          onToggleKeyword={toggleKeyword}
+          onToggleKeyword={(id) => void toggleKeyword(id)}
         />
       )}
       {section === "thresholds" && (
         <ThresholdsSection
-          thresholds={thresholds}
+          thresholds={data.thresholds}
           onReview={(item, value) => setPendingThreshold({ item, value })}
+        />
+      )}
+      {section === "rules" && (
+        <RulesSection
+          rules={data.rules}
+          onToggle={(rule) => void toggleRule(rule)}
         />
       )}
       {section === "users" && (
         <UsersSection
-          users={users}
+          users={data.users}
           onAddUser={() => openModal("user")}
-          onRoleChange={changeUserRole}
-          onToggleStatus={toggleUserStatus}
+          onRoleChange={(item, role) => void changeUserRole(item, role)}
+          onToggleStatus={(item) => void toggleUserStatus(item)}
+          {...(usesBackend
+            ? {
+                onResetPassword: (item: ManagedUser) =>
+                  void resetPassword(item),
+              }
+            : {})}
         />
       )}
-      {section === "audit" && <AuditSection events={auditEvents} />}
+      {section === "audit" && <AuditSection events={data.auditEvents} />}
       {section === "keywords" && (
         <KeywordsSection
-          keywords={keywords}
+          keywords={data.keywords}
           onAddKeyword={() => openModal("keyword")}
-          onToggle={toggleKeyword}
+          onToggle={(id) => void toggleKeyword(id)}
         />
       )}
-      {section === "facilities" && <FacilitiesSection />}
+      {section === "facilities" && (
+        <FacilitiesSection facilities={data.facilities} />
+      )}
       {section === "system" && (
-        <SystemSection sync={sync} onTriggerSync={triggerSync} />
+        <SystemSection
+          sync={data.sync}
+          history={data.syncHistory}
+          onTriggerSync={() => void triggerSync()}
+        />
       )}
     </PageContainer>
   );

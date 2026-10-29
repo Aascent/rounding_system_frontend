@@ -32,9 +32,9 @@ export default async function ReportsPage() {
           hint="Current run"
         />
         <MetricCard
-          label="See first"
+          label="High priority"
           value={dashboard.totals.highPriority}
-          hint="Urgent findings"
+          hint="See first"
         />
         <MetricCard
           label="Carried over"
@@ -59,9 +59,9 @@ export default async function ReportsPage() {
               centerLabel={dashboard.totals.patients.toLocaleString()}
               centerSublabel="patients"
               segments={[
-                { label: "See first", value: p.HIGH, tone: "danger" },
-                { label: "See today", value: p.MEDIUM, tone: "warning" },
-                { label: "Routine visit", value: p.LOW, tone: "success" },
+                { label: "High", value: p.HIGH, tone: "danger" },
+                { label: "Medium", value: p.MEDIUM, tone: "warning" },
+                { label: "Low", value: p.LOW, tone: "success" },
               ]}
             />
           </CardContent>

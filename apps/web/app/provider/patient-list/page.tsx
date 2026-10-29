@@ -11,12 +11,12 @@ const COPY = {
   PHYSICIAN: {
     title: "Patient list",
     description:
-      "Every resident you are the attending physician for. Those who need a visit from you today are marked.",
+      "Every patient you are the attending physician for. Those who need a visit from you today are marked.",
   },
   NURSE_PRACTITIONER: {
     title: "Patient list",
     description:
-      "Every resident in your care. Those who need a visit from you today are marked.",
+      "Every patient in your care. Those who need a visit from you today are marked.",
   },
 } as const;
 
@@ -41,7 +41,7 @@ export default async function PatientListPage({
       filters={parsed.filters}
       pageSize={parsed.pageSize}
       querySansPage={parsed.querySansPage}
-      scopeLabel="residents in your care"
+      scopeLabel="patients in your care"
       visitFor={role}
     />
   );

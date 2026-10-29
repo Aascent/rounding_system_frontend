@@ -1,6 +1,7 @@
 export * from "./schemas.js";
 export * from "./pagination.js";
 export * from "./rules/config.js";
+export * from "./rules/catalog.js";
 export {
   evaluatePatient,
   type Evaluation,
@@ -24,6 +25,9 @@ export {
   getSyntheticPatient,
   syntheticCensus,
   syntheticResidents,
+  syntheticSourceRecords,
+  evaluateSources,
+  type EvaluatedResident,
   isOnTodaysList,
   syntheticRoundingCandidates,
   buildQueueInsights,
@@ -32,6 +36,9 @@ export {
 } from "./rules/synthesize.js";
 export {
   queryRoundingList,
+  createRoundingIndex,
+  type RoundingIndex,
+  type ResidentAssignments,
   roundingScopeForRole,
   caseloadScopeForUser,
   needsVisitToday,
@@ -45,6 +52,9 @@ export {
 export {
   buildNpRoster,
   getNpRosterEntry,
+  buildNpRosterFrom,
+  planFacilityCoverage,
+  assignResidents,
   facilityCoverage,
   type FacilityCoverage,
   type NpRosterEntry,
@@ -52,3 +62,4 @@ export {
 export * from "./rounding-query.js";
 export * from "./admin-data.js";
 export * from "./visit-notes.js";
+export * from "./api.js";

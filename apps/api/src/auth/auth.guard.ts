@@ -1,49 +1,23 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Inject,
-  Injectable,
-  ServiceUnavailableException,
-  UnauthorizedException,
-} from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { syntheticUsers } from "@smart-rounding/contracts";
-import type { Environment } from "../config/environment.js";
 import { IS_PUBLIC } from "./auth.decorators.js";
+import { AuthService, SESSION_COOKIE } from "./auth.service.js";
 import type { AuthenticatedRequest } from "./auth.types.js";
-import type { AuthenticatedPrincipal } from "./auth.types.js";
+import { readCookie } from "./cookies.js";
 
-export function resolveSyntheticPrincipal(
-  id: string | undefined,
-  environment: Environment,
-): AuthenticatedPrincipal {
-  if (
-    environment.AUTH_MODE !== "synthetic" ||
-    environment.DATA_MODE !== "synthetic"
-  )
-    throw new ServiceUnavailableException(
-      "Identity provider is not configured",
-    );
-  if (!id) throw new UnauthorizedException("Authentication is required");
-  const user = syntheticUsers.find(
-    (candidate) => candidate.id === id && candidate.status === "ACTIVE",
-  );
-  if (!user) throw new UnauthorizedException("Authentication is invalid");
-  return {
-    subject: user.id,
-    displayName: user.name,
-    role: user.role,
-    providerId: user.providerId,
-  };
-}
-
+/**
+ * Every route is authenticated unless marked `@Public()`. The session comes
+ * from the HttpOnly session cookie and is checked against the database on
+ * each request (expiry, idle timeout, revocation, account status).
+ */
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    @Inject("ENVIRONMENT") private readonly environment: Environment,
+    private readonly auth: AuthService,
   ) {}
-  canActivate(context: ExecutionContext): boolean {
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     if (
       this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [
         context.getHandler(),
@@ -52,8 +26,11 @@ export class AuthenticationGuard implements CanActivate {
     )
       return true;
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const id = request.header("x-synthetic-user-id");
-    request.principal = resolveSyntheticPrincipal(id, this.environment);
+    const resolved = await this.auth.resolve(
+      readCookie(request.headers.cookie, SESSION_COOKIE),
+    );
+    request.principal = resolved.principal;
+    request.session = resolved.session;
     return true;
   }
 }

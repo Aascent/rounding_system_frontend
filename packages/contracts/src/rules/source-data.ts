@@ -94,7 +94,7 @@ export const syntheticPatientSources: SyntheticPatientSource[] = [
     carriedForwardFrom: null,
     dataFreshnessHours: 3,
     scenario:
-      "Long-term resident 44 days past the 30-day physician interval (warning band).",
+      "Long-term patient 44 days past the 30-day physician interval (warning band).",
   },
   {
     id: "patient-002",
@@ -282,7 +282,7 @@ export const syntheticPatientSources: SyntheticPatientSource[] = [
     carriedForwardFrom: null,
     dataFreshnessHours: 3,
     scenario:
-      "Negative control — long-term resident seen 8 days ago with no active signals.",
+      "Negative control — long-term patient seen 8 days ago with no active signals.",
   },
   {
     id: "patient-007",
@@ -316,7 +316,7 @@ export const syntheticPatientSources: SyntheticPatientSource[] = [
     carriedForwardFrom: null,
     dataFreshnessHours: 6,
     scenario:
-      "Long-term resident with no physician visit on record; the NP interim visit does not satisfy the requirement.",
+      "Long-term patient with no physician visit on record; the NP interim visit does not satisfy the requirement.",
   },
   {
     id: "patient-008",

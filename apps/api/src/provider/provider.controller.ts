@@ -1,55 +1,140 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
-  NotFoundException,
   Param,
+  Post,
   Query,
   Req,
 } from "@nestjs/common";
-import type {
-  DashboardResponse,
-  PatientDetailResponse,
-  QueueInsightsResponse,
-  RoundingListQuery,
+import {
+  visitNoteCreateSchema,
+  type DashboardResponse,
+  type NpRosterEntry,
+  type PatientDetailResponse,
+  type QueueInsightsResponse,
+  type RoundingListQuery,
+  type VisitNote,
 } from "@smart-rounding/contracts";
-import { ProviderService, type RoundingListPage } from "./provider.service.js";
 import { Roles } from "../auth/auth.decorators.js";
-import type { AuthenticatedRequest } from "../auth/auth.types.js";
+import type {
+  AuthenticatedPrincipal,
+  AuthenticatedRequest,
+} from "../auth/auth.types.js";
+import {
+  ProviderService,
+  type ProviderSummary,
+  type RoundingListPage,
+} from "./provider.service.js";
 
+const principalOf = (request: AuthenticatedRequest): AuthenticatedPrincipal => {
+  if (!request.principal) throw new Error("Authenticated principal missing");
+  return request.principal;
+};
+
+/**
+ * Provider-facing data. Every scope comes from the authenticated principal,
+ * never from the query string.
+ */
 @Controller("provider")
 @Roles("PHYSICIAN", "NURSE_PRACTITIONER")
 export class ProviderController {
   constructor(private readonly providerService: ProviderService) {}
 
-  @Get("dashboard")
-  dashboard(): DashboardResponse {
-    return this.providerService.dashboard();
+  /** Dashboard totals and chart aggregates for today's visits. */
+  @Get("summary")
+  summary(@Req() request: AuthenticatedRequest): Promise<ProviderSummary> {
+    return this.providerService.summary(principalOf(request));
   }
 
+  @Get("dashboard")
+  async dashboard(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<DashboardResponse> {
+    return (await this.providerService.summary(principalOf(request))).dashboard;
+  }
+
+  @Get("queue-insights")
+  async queueInsights(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<QueueInsightsResponse> {
+    return (await this.providerService.summary(principalOf(request))).insights;
+  }
+
+  /** Today's visits for the signed-in provider. */
   @Get("rounding-list")
   roundingList(
     @Query() query: RoundingListQuery,
     @Req() request: AuthenticatedRequest,
-  ): RoundingListPage {
-    // RolesGuard already guarantees principal.role is PHYSICIAN or
-    // NURSE_PRACTITIONER here; the scope always comes from the authenticated
-    // principal, never from the query string.
-    return this.providerService.roundingList(
-      query,
-      request.principal?.role,
-      request.principal?.subject,
-    );
+  ): Promise<RoundingListPage> {
+    return this.providerService.roundingList(query, principalOf(request));
   }
 
-  @Get("queue-insights")
-  queueInsights(): QueueInsightsResponse {
-    return this.providerService.queueInsights();
+  /** Every resident the signed-in provider covers. */
+  @Get("caseload")
+  caseload(
+    @Query() query: RoundingListQuery,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<RoundingListPage> {
+    return this.providerService.caseload(query, principalOf(request));
   }
 
   @Get("patients/:id")
-  patient(@Param("id") id: string): PatientDetailResponse {
-    const patient = this.providerService.patient(id);
-    if (!patient) throw new NotFoundException("Patient not found");
-    return patient;
+  patient(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<PatientDetailResponse> {
+    return this.providerService.patient(
+      id,
+      principalOf(request),
+      request.ip ?? null,
+    );
+  }
+
+  @Get("patients/:id/notes")
+  notes(
+    @Param("id") id: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<VisitNote[]> {
+    return this.providerService.visitNotes(id, principalOf(request));
+  }
+
+  @Post("patients/:id/notes")
+  addNote(
+    @Param("id") id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<VisitNote> {
+    const parsed = visitNoteCreateSchema.safeParse(body);
+    if (!parsed.success)
+      throw new BadRequestException("A visit note needs 3–4000 characters.");
+    return this.providerService.addVisitNote(
+      id,
+      parsed.data.note,
+      principalOf(request),
+    );
+  }
+
+  /** Physician oversight of the NP team. */
+  @Get("np-roster")
+  @Roles("PHYSICIAN")
+  npRoster(): Promise<NpRosterEntry[]> {
+    return this.providerService.npRoster();
+  }
+
+  @Get("np-roster/:npId")
+  @Roles("PHYSICIAN")
+  npRosterEntry(@Param("npId") npId: string): Promise<NpRosterEntry> {
+    return this.providerService.npRosterEntry(npId);
+  }
+
+  @Get("np-roster/:npId/caseload")
+  @Roles("PHYSICIAN")
+  npCaseload(
+    @Param("npId") npId: string,
+    @Query() query: RoundingListQuery,
+  ): Promise<RoundingListPage> {
+    return this.providerService.npCaseload(npId, query);
   }
 }

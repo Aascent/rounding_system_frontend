@@ -13,7 +13,11 @@ import {
   type SignalCategory,
   type Vitals,
 } from "../schemas.js";
-import { SIGNAL_CATEGORY_LABELS } from "./config.js";
+import {
+  illustrativeRuleConfig,
+  SIGNAL_CATEGORY_LABELS,
+  type RuleConfig,
+} from "./config.js";
 import { evaluatePatient, type Evaluation } from "./engine.js";
 import { generateSyntheticPatients } from "./generated-data.js";
 import {
@@ -190,67 +194,88 @@ function buildDetail(
   });
 }
 
-type Synthesized = {
+/** One resident after rule evaluation: the list row and the detail view. */
+export type EvaluatedResident = {
   source: SyntheticPatientSource;
   evaluation: Evaluation;
   rounding: RoundingPatient;
   detail: PatientDetail;
 };
+type Synthesized = EvaluatedResident;
 
-const synthesized: Synthesized[] = allSources
-  .map((source) => {
-    const evaluation = evaluatePatient(
-      {
-        admissionDate: source.admissionDate,
-        lengthOfStayDays: source.lengthOfStayDays,
-        ptSessionsPerWeek: source.ptSessionsPerWeek,
-        lastPhysicianVisit: source.lastPhysicianVisit,
-        lastNpVisit: source.lastNpVisit,
-        vitals: source.vitals
-          ? {
-              temperatureC: source.vitals.temperatureC,
-              spo2: source.vitals.spo2,
-              systolic: source.vitals.systolic,
-              diastolic: source.vitals.diastolic,
-              heartRate: source.vitals.heartRate,
-            }
-          : null,
-        labFlags: source.labFlags.map((l) => ({
-          analyte: l.analyte,
-          value: l.value,
-          flag: l.flag,
-        })),
-        noteText: source.noteText,
-        weights: source.weights,
-        carriedForwardFrom: source.carriedForwardFrom,
-        dataFreshnessHours: source.dataFreshnessHours,
-      },
-      NOW,
-    );
-    const rounding = buildRoundingPatient(source, evaluation);
-    const detail = buildDetail(source, evaluation, rounding);
-    return { source, evaluation, rounding, detail };
-  })
-  .sort((a, b) => {
-    // Primary: clinical urgency score. Tiebreaker: physician-required visits
-    // first. Secondary sort: compliance timing. Then name for stability.
-    if (b.rounding.urgencyScore !== a.rounding.urgencyScore)
-      return b.rounding.urgencyScore - a.rounding.urgencyScore;
-    if (
-      a.rounding.physicianActionRequired !== b.rounding.physicianActionRequired
-    )
-      return a.rounding.physicianActionRequired ? -1 : 1;
-    const complianceRank = { OVERDUE: 0, DUE_SOON: 1, ON_TRACK: 2 };
-    if (
-      complianceRank[a.rounding.complianceStatus] !==
-      complianceRank[b.rounding.complianceStatus]
-    )
-      return (
-        complianceRank[a.rounding.complianceStatus] -
-        complianceRank[b.rounding.complianceStatus]
+/**
+ * Evaluate every source record against `cfg` at `now` and return them in
+ * clinical-urgency order. Pure: the backend runs it over database records,
+ * the built-in demo dataset over the static sources below.
+ */
+export function evaluateSources(
+  sources: readonly SyntheticPatientSource[],
+  now: Date,
+  cfg: RuleConfig = illustrativeRuleConfig,
+): EvaluatedResident[] {
+  return sources
+    .map((source) => {
+      const evaluation = evaluatePatient(
+        {
+          admissionDate: source.admissionDate,
+          lengthOfStayDays: source.lengthOfStayDays,
+          ptSessionsPerWeek: source.ptSessionsPerWeek,
+          lastPhysicianVisit: source.lastPhysicianVisit,
+          lastNpVisit: source.lastNpVisit,
+          vitals: source.vitals
+            ? {
+                temperatureC: source.vitals.temperatureC,
+                spo2: source.vitals.spo2,
+                systolic: source.vitals.systolic,
+                diastolic: source.vitals.diastolic,
+                heartRate: source.vitals.heartRate,
+              }
+            : null,
+          labFlags: source.labFlags.map((l) => ({
+            analyte: l.analyte,
+            value: l.value,
+            flag: l.flag,
+          })),
+          noteText: source.noteText,
+          weights: source.weights,
+          carriedForwardFrom: source.carriedForwardFrom,
+          dataFreshnessHours: source.dataFreshnessHours,
+        },
+        now,
+        cfg,
       );
-    return a.rounding.name.localeCompare(b.rounding.name);
-  });
+      const rounding = buildRoundingPatient(source, evaluation);
+      const detail = buildDetail(source, evaluation, rounding);
+      return { source, evaluation, rounding, detail };
+    })
+    .sort((a, b) => {
+      // Primary: clinical urgency score. Tiebreaker: physician-required visits
+      // first. Secondary sort: compliance timing. Then name for stability.
+      if (b.rounding.urgencyScore !== a.rounding.urgencyScore)
+        return b.rounding.urgencyScore - a.rounding.urgencyScore;
+      if (
+        a.rounding.physicianActionRequired !==
+        b.rounding.physicianActionRequired
+      )
+        return a.rounding.physicianActionRequired ? -1 : 1;
+      const complianceRank = { OVERDUE: 0, DUE_SOON: 1, ON_TRACK: 2 };
+      if (
+        complianceRank[a.rounding.complianceStatus] !==
+        complianceRank[b.rounding.complianceStatus]
+      )
+        return (
+          complianceRank[a.rounding.complianceStatus] -
+          complianceRank[b.rounding.complianceStatus]
+        );
+      return a.rounding.name.localeCompare(b.rounding.name);
+    });
+}
+
+/** Every demo source record (hand-authored + generated) — what the backend seeds into its database. */
+export const syntheticSourceRecords: readonly SyntheticPatientSource[] =
+  allSources;
+
+const synthesized: Synthesized[] = evaluateSources(allSources, NOW);
 
 /**
  * Today's worklist: only residents for whom at least one rule fired (a

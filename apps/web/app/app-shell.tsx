@@ -6,31 +6,35 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { RouteState, Spinner } from "@/components/page";
+import type { SessionResponse } from "@smart-rounding/contracts";
+import { apiFetch } from "@/lib/api-client";
+import { usesBackend } from "@/lib/backend";
 import { isUserRole, SESSION_ROLE_COOKIE } from "@/lib/session-cookie";
+import { IdleWatcher } from "./idle-watcher";
 
-export type SyntheticSession = Readonly<{
+export type UserSession = Readonly<{
   name: string;
   role: "PHYSICIAN" | "NURSE_PRACTITIONER" | "ADMIN";
 }>;
 
-const sessionKey = "smart-rounding.synthetic-session";
+const sessionKey = "smart-rounding.session";
 
 /**
  * Persists the session to `localStorage` (read by every client component via
- * {@link useSyntheticSession}) and mirrors the role alone into a cookie so
+ * {@link useUserSession}) and mirrors the role alone into a cookie so
  * Server Components can scope read-only data — see `lib/session.ts`.
  */
-export function saveSyntheticSession(session: SyntheticSession): void {
+export function saveUserSession(session: UserSession): void {
   window.localStorage.setItem(sessionKey, JSON.stringify(session));
   document.cookie = `${SESSION_ROLE_COOKIE}=${session.role}; path=/; max-age=${60 * 60 * 12}; samesite=lax`;
 }
 
-export function clearSyntheticSession(): void {
+export function clearUserSession(): void {
   window.localStorage.removeItem(sessionKey);
   document.cookie = `${SESSION_ROLE_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }
 
-function readSyntheticSession(): SyntheticSession | null {
+function readUserSession(): UserSession | null {
   const stored = window.localStorage.getItem(sessionKey);
   if (!stored) return null;
   try {
@@ -43,7 +47,7 @@ function readSyntheticSession(): SyntheticSession | null {
       "role" in value &&
       isUserRole(String(value.role))
     )
-      return value as SyntheticSession;
+      return value as UserSession;
   } catch {
     window.localStorage.removeItem(sessionKey);
   }
@@ -51,14 +55,14 @@ function readSyntheticSession(): SyntheticSession | null {
 }
 
 /**
- * Reusable client-side read of the synthetic session, for any component that
+ * Reusable client-side read of the signed-in user (name and role), for any component that
  * needs the current user's name/role (e.g. attributing a visit note) without
  * duplicating the storage/parsing logic above. Returns `null` until mounted
  * (avoids a hydration mismatch) or when signed out.
  */
-export function useSyntheticSession(): SyntheticSession | null {
-  const [session, setSession] = useState<SyntheticSession | null>(null);
-  useEffect(() => setSession(readSyntheticSession()), []);
+export function useUserSession(): UserSession | null {
+  const [session, setSession] = useState<UserSession | null>(null);
+  useEffect(() => setSession(readUserSession()), []);
   return session;
 }
 
@@ -66,12 +70,34 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const router = useRouter();
   const isPublic = pathname === "/" || pathname === "/login";
-  const [session, setSession] = useState<SyntheticSession | null>(null);
+  const [session, setSession] = useState<UserSession | null>(null);
   const [ready, setReady] = useState(isPublic);
+  const [serverSession, setServerSession] = useState<SessionResponse | null>(
+    null,
+  );
   const userMenuRef = useRef<HTMLDetailsElement>(null);
 
+  // With the backend the server session is authoritative: confirm it (an
+  // ended session redirects to sign-in) and refresh the cached name/role.
   useEffect(() => {
-    const current = readSyntheticSession();
+    if (!usesBackend || isPublic) return;
+    let cancelled = false;
+    apiFetch<SessionResponse>("/auth/session")
+      .then((current) => {
+        if (cancelled) return;
+        const fresh = { name: current.user.name, role: current.user.role };
+        saveUserSession(fresh);
+        setSession(fresh);
+        setServerSession(current);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isPublic]);
+
+  useEffect(() => {
+    const current = readUserSession();
     setSession(current);
     setReady(true);
     if (!isPublic && !current) router.replace("/");
@@ -119,6 +145,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           ["/admin", "Dashboard"],
           ["/admin/users", "Users"],
           ["/admin/thresholds", "Thresholds"],
+          ["/admin/rules", "Rules"],
           ["/admin/keywords", "Keywords"],
           ["/admin/facilities", "Facilities"],
           ["/admin/audit", "Audit"],
@@ -208,9 +235,17 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 type="button"
                 className="mt-2.5 w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-primary transition-colors hover:bg-secondary"
                 onClick={() => {
-                  clearSyntheticSession();
-                  setSession(null);
-                  router.replace("/");
+                  void (
+                    usesBackend
+                      ? apiFetch("/auth/logout", { method: "POST" }).catch(
+                          () => undefined,
+                        )
+                      : Promise.resolve()
+                  ).finally(() => {
+                    clearUserSession();
+                    setSession(null);
+                    router.replace("/");
+                  });
                 }}
               >
                 Sign out
@@ -219,6 +254,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           </details>
         </div>
       </header>
+      {serverSession && <IdleWatcher initial={serverSession} />}
       {children}
     </>
   );

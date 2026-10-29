@@ -1,4 +1,4 @@
-import type { SyncStatus } from "@smart-rounding/contracts";
+import type { SyncHistory, SyncStatus } from "@smart-rounding/contracts";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -8,16 +8,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { JOB_HISTORY, JOB_HISTORY_COLUMNS } from "./fixtures";
+import { JOB_HISTORY_COLUMNS, jobHistoryRows } from "./fixtures";
 import { DescRow, Panel } from "./ui";
 
 export function SystemSection({
   sync,
+  history,
   onTriggerSync,
-}: Readonly<{ sync: SyncStatus; onTriggerSync: () => void }>) {
+}: Readonly<{
+  sync: SyncStatus;
+  history: SyncHistory;
+  onTriggerSync: () => void;
+}>) {
   const rows: ReadonlyArray<readonly [string, string | number]> = [
     ["Trigger", sync.trigger],
     ["Started", new Date(sync.startedAt).toLocaleString()],
+    [
+      "Completed",
+      sync.completedAt ? new Date(sync.completedAt).toLocaleString() : "—",
+    ],
     ["Records processed", sync.recordsProcessed],
     ["Validation rejects", sync.validationRejects],
     ["Errors", sync.errors],
@@ -63,10 +72,10 @@ export function SystemSection({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {JOB_HISTORY.map((run) => (
-              <TableRow key={run[0]}>
+            {jobHistoryRows(history).map((run, row) => (
+              <TableRow key={history[row]?.id ?? row}>
                 {run.map((value, index) => (
-                  <TableCell key={`${run[0]}-${index}`}>{value}</TableCell>
+                  <TableCell key={index}>{value}</TableCell>
                 ))}
               </TableRow>
             ))}

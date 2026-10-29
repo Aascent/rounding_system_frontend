@@ -1,4 +1,4 @@
-import type { UserRole } from "@smart-rounding/contracts";
+import type { SessionResponse, UserRole } from "@smart-rounding/contracts";
 import type { Request } from "express";
 
 export type AuthenticatedPrincipal = Readonly<{
@@ -6,8 +6,11 @@ export type AuthenticatedPrincipal = Readonly<{
   displayName: string;
   role: UserRole;
   providerId: string | null;
+  /** Hash of the session token (never the token itself). */
+  sessionId?: string;
 }>;
 
 export type AuthenticatedRequest = Request & {
   principal?: AuthenticatedPrincipal;
+  session?: SessionResponse;
 };

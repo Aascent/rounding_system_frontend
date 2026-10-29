@@ -38,6 +38,19 @@ export function ProviderDashboard({
         title="Today’s rounding overview"
         description="The patients who need a visit from you today, most urgent first."
       />
+      <p className="-mt-3 mb-5 text-xs text-muted-foreground">
+        Data as of the last EMR sync:{" "}
+        <time dateTime={dashboard.lastSuccessfulSync}>
+          {new Date(dashboard.lastSuccessfulSync).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            timeZone: "UTC",
+          })}{" "}
+          UTC
+        </time>
+      </p>
 
       <MetricGrid>
         <MetricCard
@@ -46,9 +59,9 @@ export function ProviderDashboard({
           hint={`Across ${dashboard.totals.facilities} ${dashboard.totals.facilities === 1 ? "facility" : "facilities"}`}
         />
         <MetricCard
-          label="See first"
+          label="High priority"
           value={dashboard.totals.highPriority}
-          hint="Urgent findings"
+          hint="See first"
         />
         <MetricCard
           label="Visits overdue"
@@ -139,17 +152,17 @@ export function ProviderDashboard({
                 centerSublabel="patients today"
                 segments={[
                   {
-                    label: "See first",
+                    label: "High",
                     value: insights.priorityBreakdown.HIGH,
                     tone: "danger",
                   },
                   {
-                    label: "See today",
+                    label: "Medium",
                     value: insights.priorityBreakdown.MEDIUM,
                     tone: "warning",
                   },
                   {
-                    label: "Routine visit",
+                    label: "Low",
                     value: insights.priorityBreakdown.LOW,
                     tone: "success",
                   },
@@ -211,7 +224,8 @@ export function ProviderDashboard({
           <CardHeader>
             <CardTitle>Patients by facility</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Your patients today at each facility, and how many to see first.
+              Your patients today at each facility, and how many are high
+              priority.
             </p>
           </CardHeader>
           <CardContent className="pt-2">

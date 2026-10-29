@@ -53,6 +53,8 @@ export type RuleConfig = Readonly<{
     highAt: number;
     mediumAt: number;
   }>;
+  /** Signal codes of rules an admin switched off (see `catalog.ts`). */
+  disabledSignalCodes?: readonly string[];
 }>;
 
 export const illustrativeRuleConfig: RuleConfig = {

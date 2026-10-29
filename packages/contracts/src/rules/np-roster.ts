@@ -38,26 +38,28 @@ export const activeNpRoster: readonly ManagedUser[] = active(
 /**
  * Facility -> covering providers of a role. Provider `i` takes facility `i`;
  * leftover facilities go to the first providers again, and leftover providers
- * co-cover the last facilities.
+ * co-cover the last facilities. The backend seeds its coverage table with it.
  */
-function coverage(
-  providers: readonly ManagedUser[],
+export function planFacilityCoverage(
+  facilities: readonly string[],
+  providers: readonly Pick<ManagedUser, "id">[],
 ): ReadonlyMap<string, readonly string[]> {
   const map = new Map<string, string[]>(
-    roundingFacilities.map((facility) => [facility, []]),
+    facilities.map((facility) => [facility, []]),
   );
   if (providers.length === 0) return map;
-  roundingFacilities.forEach((facility, i) => {
+  facilities.forEach((facility, i) => {
     map.get(facility)!.push(providers[i % providers.length]!.id);
   });
-  providers.slice(roundingFacilities.length).forEach((provider, k) => {
-    const facility =
-      roundingFacilities[roundingFacilities.length - 1 - k] ??
-      roundingFacilities[0]!;
+  providers.slice(facilities.length).forEach((provider, k) => {
+    const facility = facilities[facilities.length - 1 - k] ?? facilities[0]!;
     map.get(facility)!.push(provider.id);
   });
   return map;
 }
+
+const coverage = (providers: readonly ManagedUser[]) =>
+  planFacilityCoverage(roundingFacilities, providers);
 
 export type FacilityCoverage = Readonly<{
   physicians: readonly string[];
@@ -78,7 +80,11 @@ export const facilityCoverage: ReadonlyMap<string, FacilityCoverage> = new Map(
   ]),
 );
 
-function assign(
+/**
+ * `patient id -> provider id`: residents of a facility alternate between the
+ * providers covering it, in urgency order.
+ */
+export function assignResidents(
   residents: readonly RoundingPatient[],
   byFacility: ReadonlyMap<string, readonly string[]>,
 ): Map<string, string> {
@@ -95,13 +101,11 @@ function assign(
 
 /** `patient id -> attending physician's user id`, for every resident. */
 export const assignedPhysicianIdByPatientId: ReadonlyMap<string, string> =
-  assign(syntheticResidents, physicianCoverage);
+  assignResidents(syntheticResidents, physicianCoverage);
 
 /** `patient id -> covering NP's user id`, for every resident. */
-export const assignedNpIdByPatientId: ReadonlyMap<string, string> = assign(
-  syntheticResidents,
-  npCoverage,
-);
+export const assignedNpIdByPatientId: ReadonlyMap<string, string> =
+  assignResidents(syntheticResidents, npCoverage);
 
 export type NpRosterEntry = Readonly<{
   id: string;
@@ -129,11 +133,15 @@ const emptyTally = (): Tally => ({
   overdue: 0,
 });
 
-/** One row per active NP, with their caseload's size and today's workload. */
-export function buildNpRoster(): NpRosterEntry[] {
+/** One row per NP in `nps`, with their caseload's size and today's workload. */
+export function buildNpRosterFrom(
+  residents: readonly RoundingPatient[],
+  npByPatientId: ReadonlyMap<string, string>,
+  nps: readonly ManagedUser[],
+): NpRosterEntry[] {
   const tallies = new Map<string, Tally>();
-  for (const patient of syntheticResidents) {
-    const npId = assignedNpIdByPatientId.get(patient.id);
+  for (const patient of residents) {
+    const npId = npByPatientId.get(patient.id);
     if (!npId) continue;
     const tally = tallies.get(npId) ?? emptyTally();
     const npVisit = isOnTodaysList(patient) && !patient.physicianActionRequired;
@@ -145,13 +153,22 @@ export function buildNpRoster(): NpRosterEntry[] {
       overdue: tally.overdue + (patient.complianceStatus === "OVERDUE" ? 1 : 0),
     });
   }
-  return activeNpRoster.map((np) => ({
+  return nps.map((np) => ({
     id: np.id,
     name: np.name,
     email: np.email,
     status: np.status,
     ...(tallies.get(np.id) ?? emptyTally()),
   }));
+}
+
+/** The built-in demo dataset's NP roster. */
+export function buildNpRoster(): NpRosterEntry[] {
+  return buildNpRosterFrom(
+    syntheticResidents,
+    assignedNpIdByPatientId,
+    activeNpRoster,
+  );
 }
 
 export function getNpRosterEntry(npId: string): NpRosterEntry | undefined {

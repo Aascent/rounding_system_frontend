@@ -13,3 +13,6 @@ Thumbs.db
 next-env.d.ts
 *.tsbuildinfo
 .vercel/
+
+# Embedded development database
+.data/

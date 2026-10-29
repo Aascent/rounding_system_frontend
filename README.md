@@ -1,58 +1,58 @@
 # Smart Rounding & Compliance Platform
 
-Production application workspace for the documented Smart Rounding V1. The current implementation establishes safe web/API foundations only; clinical rules and PointClickCare mappings remain blocked by the authoritative specifications listed in the development tracker.
+Production application workspace for the documented Smart Rounding V1. The web app runs on a NestJS API backed by PostgreSQL, using synthetic (demo) data only. PointClickCare integration, Keycloak and the approved clinical thresholds remain blocked by the items listed in the development tracker.
 
 ## Requirements
 
 - Node.js 24.15 or newer
 - npm 10 or newer
 
-## Commands
+## Run locally
 
 ```bash
 npm install
-npm run dev
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
 npm run dev:api
+npm run dev
+```
+
+Open http://localhost:3000. The API listens on http://localhost:3001 and the web app proxies `/api/v1/*` to it.
+
+- **Database.** Without `DATABASE_URL` the API uses an embedded PostgreSQL (PGlite) stored in `apps/api/.data/pglite`, so no setup is needed. To use a real PostgreSQL (your local install, or Cloud SQL), create an empty database and set `DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME` in `apps/api/.env`. Migrations run and demo data is seeded automatically on first start. With pgAdmin: in a Query Tool on the `postgres` database run, one statement at a time (pgAdmin wraps scripts in a transaction, which `CREATE DATABASE` refuses), `CREATE ROLE smart_rounding_app LOGIN PASSWORD '…';` then `CREATE DATABASE smart_rounding OWNER smart_rounding_app;`, and put the matching `DATABASE_URL` in `apps/api/.env`.
+- **Reset the demo data.** Stop the API and delete `apps/api/.data/` (or drop the PostgreSQL database).
+- **Demo without a backend.** Leave `API_BASE_URL` unset and the web app runs on its built-in demo dataset (this is how the static Vercel preview works).
+
+```bash
 npm run validate
 ```
 
-Copy each `.env.example` to `.env.local` or provide equivalent environment variables. Never use real PHI in local development.
+`validate` runs format check, lint, typecheck, the API test suite (against an in-memory database) and the production build.
 
 ## Services
 
-- `apps/web`: accessible Next.js application shell. It intentionally contains no fabricated clinical records while PCC mappings and rules are unresolved.
-- `apps/api`: NestJS API with validated configuration, secure HTTP headers, CORS allow-listing, correlation IDs, safe error responses, and liveness/readiness endpoints under `/api/v1`.
-- `packages/contracts`: shared runtime-validated transport primitives.
+- `apps/web`: Next.js application. With `API_BASE_URL` set it reads everything from the API using the signed-in user's session.
+- `apps/api`: NestJS API under `/api/v1` with PostgreSQL persistence (migrations in `src/database/migrations.ts`), session authentication, server-side RBAC and resource scoping, an append-only audit log, and an OpenAPI document at `/api/v1/openapi.json`.
+- `packages/contracts`: shared Zod contracts and the deterministic rules engine used by both.
 
-Each service includes a multi-stage, non-root container build. Deployment configuration and PHI ingestion remain gated by the decisions in `development/DEVELOPMENT_TRACKER.md`.
+Each service includes a multi-stage, non-root container build. Deployment and PHI ingestion remain gated by the decisions in `development/DEVELOPMENT_TRACKER.md`.
 
-## Synthetic development mode
+## Accounts (synthetic data only)
 
-Set `DATA_MODE=synthetic` for the API to enable non-PHI interface fixtures. When unset, provider data endpoints fail closed with `503 Service Unavailable`.
+Every staff member has their own account (see Admin → Users). The demo seeds one password for all of them.
 
-- `GET /api/v1/provider/dashboard`
-- `GET /api/v1/provider/rounding-list`
-- `GET /api/v1/provider/patients/:id`
-- `GET/PATCH /api/v1/admin/thresholds[/:id]`
-- `GET/POST/PATCH /api/v1/admin/users[/:id]`
-- `GET /api/v1/admin/audit`
-- `GET /api/v1/admin/audit/export`
-- `GET/POST /api/v1/admin/sync`
-
-The web workspace currently renders the same schema-validated synthetic fixture set. Every screen labels this mode explicitly; fixture reasons and values are not approved clinical rules.
-
-The root route (`/`) is the synthetic login. Successful sign-in redirects provider and NP accounts to `/provider` and Admin accounts to `/admin`; patient details use `/patients/:id`. `/login` remains as a compatibility redirect to `/`.
-
-Provider routes: `/provider`, `/provider/physician-list`, `/provider/np-list`, and `/provider/reports`.
-
-Admin routes: `/admin`, `/admin/users`, `/admin/thresholds`, `/admin/keywords`, `/admin/facilities`, `/admin/audit`, and `/admin/system`.
-
-Synthetic credentials:
-
-- Provider: `provider@smart-rounding.test`
-- NP: `np@smart-rounding.test`
+- Physician: `provider@smart-rounding.test`
+- Nurse practitioner: `np@smart-rounding.test`
 - Admin: `admin@smart-rounding.test`
-- Password: `Demo123!`
-- MFA code: `123456`
+- Any other user: their email from Admin → Users
+- Password: `Demo123!` · MFA code: `123456`
 
-The browser-only synthetic session exists solely for UI development. Protected API routes continue to enforce their separate server-side authentication/RBAC guard.
+MFA is a fixed stand-in code until Keycloak is integrated, and is accepted only when `AUTH_MODE=local`. New users and password resets get a one-time temporary password shown once to the admin.
+
+Sessions use an HttpOnly cookie. They end after `SESSION_IDLE_MINUTES` of inactivity (the browser warns a minute before) or after `SESSION_MAX_HOURS`; "Remember me" keeps the session across browser restarts for up to `SESSION_REMEMBER_DAYS`. These values are placeholders until the practice decides its session policy.
+
+## Routes
+
+- Sign-in: `/` (`/login` redirects there).
+- Provider: `/provider` (today's visits), `/provider/patient-list` (caseload), `/provider/np-list` (physicians only), `/provider/reports`, `/patients/:id`.
+- Admin: `/admin`, `/admin/users`, `/admin/thresholds`, `/admin/rules`, `/admin/keywords`, `/admin/facilities`, `/admin/audit`, `/admin/system`.

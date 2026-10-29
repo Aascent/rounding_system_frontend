@@ -34,11 +34,13 @@ Cloud Logging/Monitoring, Cloud Build; Redis only where justified.
 
 ### Web client
 
-Provides login/MFA entry, provider dashboard, rounding list, patient detail, and Admin experiences. It renders server-authorized data and never independently calculates authoritative compliance or priority results.
+Provides login/MFA entry, provider dashboard, rounding list, patient detail, and Admin experiences. It renders server-authorized data and never independently calculates authoritative compliance or priority results. With `API_BASE_URL` set, Server Components call the API with the user's session cookie and the browser calls same-origin `/api/v1/*` proxied by Next.js; without it the client runs on a built-in demo dataset (static previews only).
 
 ### Identity and access
 
 Keycloak mediates OAuth 2.0-based authentication and MFA; SAML 2.0 is listed as supported but its role is not specified. NestJS validates tokens and applies role plus resource/facility scope at every boundary. Identity lifecycle, federation, session values, and exact permissions require decisions.
+
+Until Keycloak is available the API runs local database accounts (`AUTH_MODE=local`): scrypt-hashed passwords, a stand-in MFA code, and opaque HttpOnly session cookies stored as hashes with idle and absolute expiry. Guards resolve the session on every request; services enforce resource scope (an NP only opens patients in their caseload; admins never open clinical records).
 
 ### PCC integration adapter
 

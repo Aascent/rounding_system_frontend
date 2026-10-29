@@ -1,5 +1,10 @@
-import { SyntheticLogin } from "./synthetic-login";
+import { Suspense } from "react";
+import { LoginForm } from "./login-form";
 
-export default function HomePage() {
-  return <SyntheticLogin />;
+export default function Home() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
 }
