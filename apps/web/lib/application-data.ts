@@ -16,7 +16,6 @@ import {
   syntheticDashboard,
   syntheticFacilities,
   syntheticKeywordLibrary,
-  featuredPatientIds,
   syntheticQueueInsights,
   syntheticRoundingCandidates,
   syntheticSyncStatus,
@@ -92,8 +91,6 @@ export interface ApplicationDataSource {
     query: RoundingListQuery,
   ): Promise<RoundingListPage>;
   patient(id: string): Promise<PatientDetailResponse | undefined>;
-  /** Patients pre-rendered at build time (none when data is server-side). */
-  featuredPatientIds(): Promise<string[]>;
   adminData(): Promise<AdminData>;
 }
 
@@ -215,9 +212,6 @@ class DemoApplicationDataSource implements ApplicationDataSource {
   patient(id: string) {
     return Promise.resolve(getSyntheticPatient(id));
   }
-  featuredPatientIds() {
-    return Promise.resolve([...featuredPatientIds]);
-  }
   adminData() {
     return Promise.resolve({
       thresholds: syntheticThresholds,
@@ -273,9 +267,6 @@ class BackendApplicationDataSource implements ApplicationDataSource {
     return serverApi<PatientDetailResponse>(
       `/provider/patients/${encodeURIComponent(id)}`,
     );
-  }
-  featuredPatientIds() {
-    return Promise.resolve([]);
   }
   adminData() {
     return serverApiRequired<AdminData>("/admin/overview");

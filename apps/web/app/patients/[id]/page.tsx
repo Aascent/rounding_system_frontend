@@ -14,13 +14,7 @@ import {
 } from "@/lib/status";
 import { VisitNotes } from "./visit-notes";
 
-// Pre-render only the hand-authored scenario patients; the ~975 generated
-// records render on demand (dynamicParams defaults to true).
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  return (await applicationData.featuredPatientIds()).map((id) => ({ id }));
-}
+// Rendered per request: the page reads the session and the `from` query.
 
 function DescRow({ term, children }: { term: string; children: ReactNode }) {
   return (
