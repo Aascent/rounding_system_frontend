@@ -24,6 +24,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type NavRole = "PHYSICIAN" | "NURSE_PRACTITIONER" | "ADMIN";
@@ -75,35 +76,87 @@ function isActive(pathname: string, href: string): boolean {
 
 /**
  * Sidebar geometry: every row keeps its icon at the same x position in both
- * states, so collapsing only animates the width and fades the text. Nothing
- * re-flows mid-animation (which is what made it jerk).
+ * states, so collapsing only animates the width and fades the text. Rows clip
+ * their own content, so hover backgrounds never spill past the rail.
  */
 const ROW =
-  "flex h-10 w-full items-center rounded-lg pl-[15px] text-sm font-semibold outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50";
+  "flex h-10 w-full items-center overflow-hidden rounded-lg pl-[15px] text-sm font-semibold outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50";
 const fade = (collapsed: boolean) =>
   cn(
     "ml-3 truncate whitespace-nowrap transition-opacity duration-200",
     collapsed && "pointer-events-none opacity-0",
   );
+const LOGO =
+  "grid size-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[#16816f] to-primary-strong text-sm font-bold text-white shadow-[0_4px_12px_rgba(13,107,93,0.17)]";
 
-function Brand({
-  home,
-  collapsed = false,
-}: Readonly<{ home: Route; collapsed?: boolean }>) {
+function Brand({ home }: Readonly<{ home: Route }>) {
   return (
     <Link
-      className="flex h-10 items-center rounded-lg pl-1.5 font-bold tracking-[-0.015em] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="flex h-10 min-w-0 items-center rounded-lg pl-1.5 font-bold tracking-[-0.015em] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       href={home}
-      title={collapsed ? "Smart Rounding" : undefined}
     >
-      <span
-        aria-hidden="true"
-        className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[#16816f] to-primary-strong text-sm font-bold text-white shadow-[0_4px_12px_rgba(13,107,93,0.17)]"
-      >
+      <span aria-hidden="true" className={LOGO}>
         SR
       </span>
-      <span className={cn(fade(collapsed), "ml-2.5")}>Smart Rounding</span>
+      <span className="ml-2.5 truncate whitespace-nowrap">Smart Rounding</span>
     </Link>
+  );
+}
+
+/**
+ * Top of the desktop sidebar. Expanded: logo, name and a collapse button.
+ * Collapsed: the logo itself becomes the expand button (it shows the panel
+ * icon on hover), the pattern used by most current apps.
+ */
+function SidebarHeader({
+  home,
+  collapsed,
+  onToggle,
+}: Readonly<{ home: Route; collapsed: boolean; onToggle: () => void }>) {
+  const shortcut = "Ctrl+B";
+  if (collapsed)
+    return (
+      <div className="flex h-10 items-center pl-1.5">
+        <Tooltip label={`Expand sidebar (${shortcut})`}>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Expand sidebar"
+            aria-expanded={false}
+            className="group relative grid size-9 place-items-center rounded-[10px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                LOGO,
+                "absolute inset-0 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0",
+              )}
+            >
+              SR
+            </span>
+            <PanelLeftOpen
+              aria-hidden="true"
+              className="size-[18px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+            />
+          </button>
+        </Tooltip>
+      </div>
+    );
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <Brand home={home} />
+      <Tooltip label={`Collapse sidebar (${shortcut})`} side="bottom">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label="Collapse sidebar"
+          aria-expanded
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <PanelLeftClose className="size-[18px]" aria-hidden="true" />
+        </button>
+      </Tooltip>
+    </div>
   );
 }
 
@@ -118,22 +171,22 @@ function NavLinks({
         const active = isActive(pathname, href);
         return (
           <li key={href}>
-            <Link
-              href={href}
-              aria-current={active ? "page" : undefined}
-              // The label stays in the DOM (faded) so it is still the
-              // accessible name; the title adds a hover hint when collapsed.
-              title={collapsed ? label : undefined}
-              className={cn(
-                ROW,
-                active
-                  ? "bg-secondary text-primary-strong"
-                  : "text-muted-foreground hover:bg-muted hover:text-primary",
-              )}
-            >
-              <Icon className="size-[18px] shrink-0" aria-hidden="true" />
-              <span className={fade(collapsed)}>{label}</span>
-            </Link>
+            <Tooltip label={label} disabled={!collapsed}>
+              <Link
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  ROW,
+                  active
+                    ? "bg-secondary text-primary-strong"
+                    : "text-muted-foreground hover:bg-muted hover:text-primary",
+                )}
+              >
+                <Icon className="size-[18px] shrink-0" aria-hidden="true" />
+                {/* Faded, not removed: it stays the accessible name. */}
+                <span className={fade(collapsed)}>{label}</span>
+              </Link>
+            </Tooltip>
           </li>
         );
       })}
@@ -154,32 +207,32 @@ function UserBlock({
 }>) {
   return (
     <div className="grid gap-1">
-      <div
-        className="flex h-12 items-center pl-1.5"
-        title={collapsed ? `${name} · ${roleLabel}` : undefined}
-      >
-        <span
-          aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#16816f] to-primary-strong text-[0.75rem] font-bold text-white"
+      <Tooltip label={`${name} · ${roleLabel}`} disabled={!collapsed}>
+        <div className="flex h-12 items-center overflow-hidden pl-1.5">
+          <span
+            aria-hidden="true"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#16816f] to-primary-strong text-[0.75rem] font-bold text-white"
+          >
+            {name.trim().slice(0, 2).toUpperCase()}
+          </span>
+          <span className={cn(fade(collapsed), "ml-2.5 flex min-w-0 flex-col")}>
+            <strong className="truncate text-sm">{name}</strong>
+            <small className="text-[0.72rem] capitalize text-muted-foreground">
+              {roleLabel}
+            </small>
+          </span>
+        </div>
+      </Tooltip>
+      <Tooltip label="Sign out" disabled={!collapsed}>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className={cn(ROW, "text-primary hover:bg-secondary")}
         >
-          {name.trim().slice(0, 2).toUpperCase()}
-        </span>
-        <span className={cn(fade(collapsed), "ml-2.5 flex min-w-0 flex-col")}>
-          <strong className="truncate text-sm">{name}</strong>
-          <small className="text-[0.72rem] capitalize text-muted-foreground">
-            {roleLabel}
-          </small>
-        </span>
-      </div>
-      <button
-        type="button"
-        onClick={onSignOut}
-        title={collapsed ? "Sign out" : undefined}
-        className={cn(ROW, "text-primary hover:bg-secondary")}
-      >
-        <LogOut className="size-[18px] shrink-0" aria-hidden="true" />
-        <span className={fade(collapsed)}>Sign out</span>
-      </button>
+          <LogOut className="size-[18px] shrink-0" aria-hidden="true" />
+          <span className={fade(collapsed)}>Sign out</span>
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -214,54 +267,35 @@ export function AppNavigation({
 
   return (
     <>
-      <aside
-        aria-label="Primary navigation"
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden flex-col overflow-x-hidden border-r border-border bg-card px-3 py-4 transition-[width] duration-200 ease-out lg:flex",
-          collapsed ? "w-[4.5rem]" : "w-64",
-        )}
-      >
-        <Brand home={home} collapsed={collapsed} />
-        <nav
-          className="mt-6 flex-1 overflow-y-auto overflow-x-hidden"
-          aria-label="Sections"
+      <TooltipProvider delayDuration={150}>
+        <aside
+          aria-label="Primary navigation"
+          className={cn(
+            "fixed inset-y-0 left-0 z-40 hidden flex-col overflow-hidden border-r border-border bg-card px-3 py-4 transition-[width] duration-200 ease-out lg:flex",
+            collapsed ? "w-[4.5rem]" : "w-64",
+          )}
         >
-          <NavLinks items={items} collapsed={collapsed} />
-        </nav>
-        <div className="grid gap-1 border-t border-border pt-3">
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-expanded={!collapsed}
-            title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
-            className={cn(
-              ROW,
-              "text-muted-foreground hover:bg-muted hover:text-primary",
-            )}
-          >
-            {collapsed ? (
-              <PanelLeftOpen
-                className="size-[18px] shrink-0"
-                aria-hidden="true"
-              />
-            ) : (
-              <PanelLeftClose
-                className="size-[18px] shrink-0"
-                aria-hidden="true"
-              />
-            )}
-            <span className={fade(collapsed)}>
-              {collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            </span>
-          </button>
-          <UserBlock
-            name={name}
-            roleLabel={roleLabel}
-            onSignOut={onSignOut}
+          <SidebarHeader
+            home={home}
             collapsed={collapsed}
+            onToggle={onToggleCollapsed}
           />
-        </div>
-      </aside>
+          <nav
+            className="mt-6 flex-1 overflow-y-auto overflow-x-hidden"
+            aria-label="Sections"
+          >
+            <NavLinks items={items} collapsed={collapsed} />
+          </nav>
+          <div className="border-t border-border pt-3">
+            <UserBlock
+              name={name}
+              roleLabel={roleLabel}
+              onSignOut={onSignOut}
+              collapsed={collapsed}
+            />
+          </div>
+        </aside>
+      </TooltipProvider>
 
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <header className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-card px-4 py-2.5 shadow-sm lg:hidden">
