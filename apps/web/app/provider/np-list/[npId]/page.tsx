@@ -23,12 +23,15 @@ export default async function NpPatientsPage({
   if (role === "NURSE_PRACTITIONER") redirect("/provider/patient-list");
   if (role !== "PHYSICIAN") redirect("/");
 
-  const { npId } = await params;
+  const [{ npId }, search] = await Promise.all([params, searchParams]);
+  const parsed = parseRoundingSearchParams(search);
+  // Load the NP and their patients together. An unknown NP still shows
+  // "not found": the list's own failure is only surfaced once the NP exists.
+  const listRequest = applicationData.npPatientList(npId, parsed.query);
+  listRequest.catch(() => undefined);
   const np = await applicationData.npRosterEntry(npId);
   if (!np) notFound();
-
-  const parsed = parseRoundingSearchParams(await searchParams);
-  const pageData = await applicationData.npPatientList(npId, parsed.query);
+  const pageData = await listRequest;
 
   return (
     <RoundingListView

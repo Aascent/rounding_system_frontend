@@ -64,6 +64,7 @@ const asJson = <T>(value: unknown): T =>
 @Injectable()
 export class RoundingDataService {
   private cache: Promise<Snapshot> | undefined;
+  private cacheDay: string | undefined;
 
   constructor(
     @Inject(DATABASE) private readonly db: Database,
@@ -82,6 +83,13 @@ export class RoundingDataService {
   }
 
   snapshot(): Promise<Snapshot> {
+    // Visit timing depends on today's date, so a new day rebuilds the list
+    // even when nothing else changed (UTC, as the engine's clock).
+    const day = this.clock().toISOString().slice(0, 10);
+    if (day !== this.cacheDay) {
+      this.cache = undefined;
+      this.cacheDay = day;
+    }
     this.cache ??= this.build().catch((error: unknown) => {
       this.cache = undefined;
       throw error;
