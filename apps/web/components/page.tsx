@@ -110,11 +110,11 @@ export function MetricCard({
   valueClassName?: string;
 }>) {
   return (
-    <article className="flex min-h-[150px] flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article className="flex min-h-[150px] min-w-0 flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
       <span className="text-sm font-bold text-muted-foreground">{label}</span>
       <strong
         className={cn(
-          "mb-0.5 mt-auto text-[2.4rem] leading-none tracking-[-0.04em]",
+          "mb-0.5 mt-auto text-[2.4rem] leading-none tracking-[-0.04em] [overflow-wrap:anywhere]",
           valueClassName,
         )}
       >
@@ -131,7 +131,10 @@ export function MetricGrid({
 }: HTMLAttributes<HTMLElement>) {
   return (
     <section
-      className={cn("mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4", className)}
+      className={cn(
+        "mb-6 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 lg:grid-cols-4",
+        className,
+      )}
       {...props}
     />
   );
