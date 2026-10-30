@@ -76,6 +76,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     null,
   );
   const userMenuRef = useRef<HTMLDetailsElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+
+  // Keep the current page's tab visible when the nav scrolls on small screens.
+  useEffect(() => {
+    navRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [pathname, session]);
 
   // With the backend the server session is authoritative: confirm it (an
   // ended session redirects to sign-in) and refresh the cached name/role.
@@ -183,8 +191,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           <span className="hidden sm:inline">Smart Rounding</span>
         </Link>
         <nav
+          ref={navRef}
           aria-label="Primary navigation"
-          className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // Below lg the links can overflow: they scroll sideways, and the
+          // right edge fades so it is clear there is more.
+          className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] max-lg:pr-6 max-lg:[mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)] [&::-webkit-scrollbar]:hidden"
         >
           {navigation.map(([href, label]) => {
             const active = pathname === href;

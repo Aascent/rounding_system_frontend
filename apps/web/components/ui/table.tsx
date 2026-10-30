@@ -9,7 +9,7 @@ export function Table({
   return (
     <div
       data-slot="table-wrapper"
-      className={cn("w-full overflow-x-auto", wrapperClassName)}
+      className={cn("relative w-full overflow-x-auto", wrapperClassName)}
     >
       <table
         data-slot="table"

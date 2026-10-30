@@ -7,7 +7,7 @@ export function Panel({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return (
     <section
       className={cn(
-        "rounded-xl border border-border bg-card p-6 shadow-sm",
+        "min-w-0 rounded-xl border border-border bg-card p-6 shadow-sm",
         className,
       )}
       {...props}
