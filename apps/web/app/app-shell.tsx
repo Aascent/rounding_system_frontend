@@ -7,7 +7,10 @@ import type { SessionResponse } from "@smart-rounding/contracts";
 import { apiFetch } from "@/lib/api-client";
 import { usesBackend } from "@/lib/backend";
 import { isUserRole, SESSION_ROLE_COOKIE } from "@/lib/session-cookie";
+import { cn } from "@/lib/utils";
 import { AppNavigation } from "./app-navigation";
+
+const SIDEBAR_KEY = "smart-rounding.sidebar";
 import { IdleWatcher } from "./idle-watcher";
 
 export type UserSession = Readonly<{
@@ -112,6 +115,44 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       router.replace("/admin");
   }, [isPublic, pathname, router]);
 
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Remember the desktop sidebar state on this device.
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(SIDEBAR_KEY) === "collapsed");
+    } catch {
+      // Storage blocked: start expanded.
+    }
+  }, []);
+
+  function toggleSidebar() {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(
+          SIDEBAR_KEY,
+          next ? "collapsed" : "expanded",
+        );
+      } catch {
+        // Storage blocked: the toggle still works for this visit.
+      }
+      return next;
+    });
+  }
+
+  // Ctrl+B / Cmd+B toggles the sidebar, the common convention.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        toggleSidebar();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (isPublic) return children;
   const wrongRole =
     !!session &&
@@ -144,9 +185,18 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         role={session.role}
         name={session.name}
         onSignOut={signOut}
+        collapsed={collapsed}
+        onToggleCollapsed={toggleSidebar}
       />
       {serverSession && <IdleWatcher initial={serverSession} />}
-      <div className="lg:pl-64">{children}</div>
+      <div
+        className={cn(
+          "transition-[padding] duration-200",
+          collapsed ? "lg:pl-[4.5rem]" : "lg:pl-64",
+        )}
+      >
+        {children}
+      </div>
     </>
   );
 }

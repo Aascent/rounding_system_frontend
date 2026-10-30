@@ -9,6 +9,8 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   ScrollText,
   Server,
   SlidersHorizontal,
@@ -71,11 +73,15 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function Brand({ home }: Readonly<{ home: Route }>) {
+function Brand({
+  home,
+  collapsed = false,
+}: Readonly<{ home: Route; collapsed?: boolean }>) {
   return (
     <Link
       className="flex items-center gap-2.5 font-bold tracking-[-0.015em]"
       href={home}
+      aria-label={collapsed ? "Smart Rounding home" : undefined}
     >
       <span
         aria-hidden="true"
@@ -83,12 +89,15 @@ function Brand({ home }: Readonly<{ home: Route }>) {
       >
         SR
       </span>
-      <span>Smart Rounding</span>
+      {!collapsed && <span>Smart Rounding</span>}
     </Link>
   );
 }
 
-function NavLinks({ items }: Readonly<{ items: readonly NavItem[] }>) {
+function NavLinks({
+  items,
+  collapsed = false,
+}: Readonly<{ items: readonly NavItem[]; collapsed?: boolean }>) {
   const pathname = usePathname();
   return (
     <ul className="grid gap-1">
@@ -99,15 +108,19 @@ function NavLinks({ items }: Readonly<{ items: readonly NavItem[] }>) {
             <Link
               href={href}
               aria-current={active ? "page" : undefined}
+              // Collapsed: icon only; the name shows on hover and stays
+              // available to screen readers.
+              title={collapsed ? label : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
+                collapsed && "justify-center px-0",
                 active
                   ? "bg-secondary text-primary-strong"
                   : "text-muted-foreground hover:bg-muted hover:text-primary",
               )}
             >
               <Icon className="size-[18px] shrink-0" aria-hidden="true" />
-              {label}
+              <span className={collapsed ? "sr-only" : undefined}>{label}</span>
             </Link>
           </li>
         );
@@ -120,17 +133,29 @@ function UserBlock({
   name,
   roleLabel,
   onSignOut,
-}: Readonly<{ name: string; roleLabel: string; onSignOut: () => void }>) {
+  collapsed = false,
+}: Readonly<{
+  name: string;
+  roleLabel: string;
+  onSignOut: () => void;
+  collapsed?: boolean;
+}>) {
   return (
     <div className="border-t border-border pt-4">
-      <div className="flex items-center gap-3 px-1">
+      <div
+        className={cn(
+          "flex items-center gap-3 px-1",
+          collapsed && "justify-center px-0",
+        )}
+        title={collapsed ? `${name} · ${roleLabel}` : undefined}
+      >
         <span
           aria-hidden="true"
           className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#16816f] to-primary-strong text-[0.78rem] font-bold text-white"
         >
           {name.trim().slice(0, 2).toUpperCase()}
         </span>
-        <span className="flex min-w-0 flex-col">
+        <span className={cn("flex min-w-0 flex-col", collapsed && "sr-only")}>
           <strong className="truncate text-sm">{name}</strong>
           <small className="text-[0.72rem] capitalize text-muted-foreground">
             {roleLabel}
@@ -140,10 +165,14 @@ function UserBlock({
       <button
         type="button"
         onClick={onSignOut}
-        className="mt-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary"
+        title={collapsed ? "Sign out" : undefined}
+        className={cn(
+          "mt-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary",
+          collapsed && "justify-center px-0",
+        )}
       >
         <LogOut className="size-[18px]" aria-hidden="true" />
-        Sign out
+        <span className={collapsed ? "sr-only" : undefined}>Sign out</span>
       </button>
     </div>
   );
@@ -157,7 +186,16 @@ export function AppNavigation({
   role,
   name,
   onSignOut,
-}: Readonly<{ role: NavRole; name: string; onSignOut: () => void }>) {
+  collapsed,
+  onToggleCollapsed,
+}: Readonly<{
+  role: NavRole;
+  name: string;
+  onSignOut: () => void;
+  /** Desktop sidebar shown as an icon rail. */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}>) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const items = navigationFor(role);
@@ -171,15 +209,42 @@ export function AppNavigation({
     <>
       <aside
         aria-label="Primary navigation"
-        className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-card px-4 py-5 lg:flex"
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-card py-5 transition-[width] duration-200 lg:flex",
+          collapsed ? "w-[4.5rem] px-3" : "w-64 px-4",
+        )}
       >
-        <div className="px-1">
-          <Brand home={home} />
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            collapsed ? "flex-col" : "justify-between px-1",
+          )}
+        >
+          <Brand home={home} collapsed={collapsed} />
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+            className="grid size-9 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-[18px]" aria-hidden="true" />
+            ) : (
+              <PanelLeftClose className="size-[18px]" aria-hidden="true" />
+            )}
+          </button>
         </div>
-        <nav className="mt-7 flex-1 overflow-y-auto" aria-label="Sections">
-          <NavLinks items={items} />
+        <nav className="mt-6 flex-1 overflow-y-auto" aria-label="Sections">
+          <NavLinks items={items} collapsed={collapsed} />
         </nav>
-        <UserBlock name={name} roleLabel={roleLabel} onSignOut={onSignOut} />
+        <UserBlock
+          name={name}
+          roleLabel={roleLabel}
+          onSignOut={onSignOut}
+          collapsed={collapsed}
+        />
       </aside>
 
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
