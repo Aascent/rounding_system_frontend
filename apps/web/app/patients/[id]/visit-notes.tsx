@@ -181,7 +181,7 @@ export function VisitNotes({ patientId }: Readonly<{ patientId: string }>) {
               aria-describedby="visit-note-count"
               {...register("note")}
             />
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <span aria-live="polite">
                 {saveError && (
                   <small className="text-xs font-bold text-destructive">

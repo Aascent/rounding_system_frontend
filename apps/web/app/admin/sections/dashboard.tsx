@@ -170,9 +170,9 @@ export function DashboardSection({
             {facilities.map(({ name, address, patients }) => (
               <li
                 key={name}
-                className="flex items-center justify-between gap-3 border-t border-border px-1 py-2.5"
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-1 py-2.5"
               >
-                <span className="flex flex-col gap-0.5">
+                <span className="flex min-w-0 flex-col gap-0.5">
                   <strong>{name}</strong>
                   <small className="text-[0.73rem] text-muted-foreground">
                     {address}

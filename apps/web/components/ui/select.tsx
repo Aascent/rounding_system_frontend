@@ -22,7 +22,8 @@ export function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-sm text-foreground shadow-sm outline-none transition-[color,box-shadow,border-color]",
+        "flex w-full min-w-0 items-center justify-between gap-2 whitespace-nowrap rounded-lg border border-input bg-card px-3 text-left text-sm text-foreground shadow-sm outline-none transition-[color,box-shadow,border-color]",
+        "[&>span]:min-w-0 [&>span]:truncate",
         "data-[size=default]:h-10 data-[size=sm]:h-8",
         "hover:border-primary/50 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50",
         "data-[state=open]:border-primary data-[placeholder]:text-muted-foreground",

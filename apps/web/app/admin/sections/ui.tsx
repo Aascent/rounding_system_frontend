@@ -7,7 +7,7 @@ export function Panel({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return (
     <section
       className={cn(
-        "min-w-0 rounded-xl border border-border bg-card p-6 shadow-sm",
+        "min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6",
         className,
       )}
       {...props}
@@ -21,8 +21,8 @@ export function PanelHeading({
   action,
 }: Readonly<{ title: string; description?: ReactNode; action?: ReactNode }>) {
   return (
-    <div className="flex items-start justify-between gap-5">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3">
+      <div className="min-w-0 flex-[1_1_12rem]">
         <h2 className="text-lg font-semibold">{title}</h2>
         {description && (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>

@@ -75,7 +75,7 @@ export function UsersSection({
               </TableCell>
               <TableCell>{item.status}</TableCell>
               <TableCell>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2 whitespace-nowrap">
                   <Button
                     type="button"
                     size="sm"

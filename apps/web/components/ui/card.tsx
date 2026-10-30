@@ -6,7 +6,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
     <div
       data-slot="card"
       className={cn(
-        "rounded-xl border border-border bg-card text-card-foreground shadow-sm",
+        "min-w-0 rounded-xl border border-border bg-card text-card-foreground shadow-sm",
         className,
       )}
       {...props}
@@ -22,7 +22,7 @@ export function CardHeader({
     <div
       data-slot="card-header"
       className={cn(
-        "flex flex-col gap-1.5 px-6 pt-6 [&:has(+[data-slot=card-content])]:pb-0",
+        "flex flex-col gap-1.5 px-4 pt-6 sm:px-6 [&:has(+[data-slot=card-content])]:pb-0",
         className,
       )}
       {...props}
@@ -63,7 +63,7 @@ export function CardContent({
   return (
     <div
       data-slot="card-content"
-      className={cn("px-6 py-6", className)}
+      className={cn("px-4 py-6 sm:px-6", className)}
       {...props}
     />
   );
@@ -76,7 +76,7 @@ export function CardFooter({
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center px-6 pb-6", className)}
+      className={cn("flex items-center px-4 pb-6 sm:px-6", className)}
       {...props}
     />
   );

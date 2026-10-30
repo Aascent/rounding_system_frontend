@@ -61,7 +61,7 @@ export default async function PatientPage({
   return (
     <PageContainer>
       <nav
-        className="flex items-center justify-between border-b border-border py-4"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-4"
         aria-label="Breadcrumb"
       >
         <Link
