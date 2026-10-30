@@ -73,23 +73,36 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * Sidebar geometry: every row keeps its icon at the same x position in both
+ * states, so collapsing only animates the width and fades the text. Nothing
+ * re-flows mid-animation (which is what made it jerk).
+ */
+const ROW =
+  "flex h-10 w-full items-center rounded-lg pl-[15px] text-sm font-semibold outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50";
+const fade = (collapsed: boolean) =>
+  cn(
+    "ml-3 truncate whitespace-nowrap transition-opacity duration-200",
+    collapsed && "pointer-events-none opacity-0",
+  );
+
 function Brand({
   home,
   collapsed = false,
 }: Readonly<{ home: Route; collapsed?: boolean }>) {
   return (
     <Link
-      className="flex items-center gap-2.5 font-bold tracking-[-0.015em]"
+      className="flex h-10 items-center rounded-lg pl-1.5 font-bold tracking-[-0.015em] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       href={home}
-      aria-label={collapsed ? "Smart Rounding home" : undefined}
+      title={collapsed ? "Smart Rounding" : undefined}
     >
       <span
         aria-hidden="true"
-        className="grid size-9 place-items-center rounded-[10px] bg-gradient-to-br from-[#16816f] to-primary-strong text-sm font-bold text-white shadow-[0_4px_12px_rgba(13,107,93,0.17)]"
+        className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[#16816f] to-primary-strong text-sm font-bold text-white shadow-[0_4px_12px_rgba(13,107,93,0.17)]"
       >
         SR
       </span>
-      {!collapsed && <span>Smart Rounding</span>}
+      <span className={cn(fade(collapsed), "ml-2.5")}>Smart Rounding</span>
     </Link>
   );
 }
@@ -108,19 +121,18 @@ function NavLinks({
             <Link
               href={href}
               aria-current={active ? "page" : undefined}
-              // Collapsed: icon only; the name shows on hover and stays
-              // available to screen readers.
+              // The label stays in the DOM (faded) so it is still the
+              // accessible name; the title adds a hover hint when collapsed.
               title={collapsed ? label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
-                collapsed && "justify-center px-0",
+                ROW,
                 active
                   ? "bg-secondary text-primary-strong"
                   : "text-muted-foreground hover:bg-muted hover:text-primary",
               )}
             >
               <Icon className="size-[18px] shrink-0" aria-hidden="true" />
-              <span className={collapsed ? "sr-only" : undefined}>{label}</span>
+              <span className={fade(collapsed)}>{label}</span>
             </Link>
           </li>
         );
@@ -141,21 +153,18 @@ function UserBlock({
   collapsed?: boolean;
 }>) {
   return (
-    <div className="border-t border-border pt-4">
+    <div className="grid gap-1">
       <div
-        className={cn(
-          "flex items-center gap-3 px-1",
-          collapsed && "justify-center px-0",
-        )}
+        className="flex h-12 items-center pl-1.5"
         title={collapsed ? `${name} · ${roleLabel}` : undefined}
       >
         <span
           aria-hidden="true"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#16816f] to-primary-strong text-[0.78rem] font-bold text-white"
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#16816f] to-primary-strong text-[0.75rem] font-bold text-white"
         >
           {name.trim().slice(0, 2).toUpperCase()}
         </span>
-        <span className={cn("flex min-w-0 flex-col", collapsed && "sr-only")}>
+        <span className={cn(fade(collapsed), "ml-2.5 flex min-w-0 flex-col")}>
           <strong className="truncate text-sm">{name}</strong>
           <small className="text-[0.72rem] capitalize text-muted-foreground">
             {roleLabel}
@@ -166,21 +175,19 @@ function UserBlock({
         type="button"
         onClick={onSignOut}
         title={collapsed ? "Sign out" : undefined}
-        className={cn(
-          "mt-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary",
-          collapsed && "justify-center px-0",
-        )}
+        className={cn(ROW, "text-primary hover:bg-secondary")}
       >
-        <LogOut className="size-[18px]" aria-hidden="true" />
-        <span className={collapsed ? "sr-only" : undefined}>Sign out</span>
+        <LogOut className="size-[18px] shrink-0" aria-hidden="true" />
+        <span className={fade(collapsed)}>Sign out</span>
       </button>
     </div>
   );
 }
 
 /**
- * Same navigation for every role: a fixed sidebar on large screens, and a
- * top bar with a menu button that opens the same list in a drawer below lg.
+ * Same navigation for every role: a fixed sidebar on large screens (which
+ * collapses to an icon rail), and a top bar with a menu button that opens
+ * the same list in a drawer below lg.
  */
 export function AppNavigation({
   role,
@@ -210,41 +217,50 @@ export function AppNavigation({
       <aside
         aria-label="Primary navigation"
         className={cn(
-          "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-card py-5 transition-[width] duration-200 lg:flex",
-          collapsed ? "w-[4.5rem] px-3" : "w-64 px-4",
+          "fixed inset-y-0 left-0 z-40 hidden flex-col overflow-x-hidden border-r border-border bg-card px-3 py-4 transition-[width] duration-200 ease-out lg:flex",
+          collapsed ? "w-[4.5rem]" : "w-64",
         )}
       >
-        <div
-          className={cn(
-            "flex items-center gap-2",
-            collapsed ? "flex-col" : "justify-between px-1",
-          )}
+        <Brand home={home} collapsed={collapsed} />
+        <nav
+          className="mt-6 flex-1 overflow-y-auto overflow-x-hidden"
+          aria-label="Sections"
         >
-          <Brand home={home} collapsed={collapsed} />
+          <NavLinks items={items} collapsed={collapsed} />
+        </nav>
+        <div className="grid gap-1 border-t border-border pt-3">
           <button
             type="button"
             onClick={onToggleCollapsed}
             aria-expanded={!collapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className={cn(
+              ROW,
+              "text-muted-foreground hover:bg-muted hover:text-primary",
+            )}
           >
             {collapsed ? (
-              <PanelLeftOpen className="size-[18px]" aria-hidden="true" />
+              <PanelLeftOpen
+                className="size-[18px] shrink-0"
+                aria-hidden="true"
+              />
             ) : (
-              <PanelLeftClose className="size-[18px]" aria-hidden="true" />
+              <PanelLeftClose
+                className="size-[18px] shrink-0"
+                aria-hidden="true"
+              />
             )}
+            <span className={fade(collapsed)}>
+              {collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            </span>
           </button>
+          <UserBlock
+            name={name}
+            roleLabel={roleLabel}
+            onSignOut={onSignOut}
+            collapsed={collapsed}
+          />
         </div>
-        <nav className="mt-6 flex-1 overflow-y-auto" aria-label="Sections">
-          <NavLinks items={items} collapsed={collapsed} />
-        </nav>
-        <UserBlock
-          name={name}
-          roleLabel={roleLabel}
-          onSignOut={onSignOut}
-          collapsed={collapsed}
-        />
       </aside>
 
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -259,8 +275,8 @@ export function AppNavigation({
         </header>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/45 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 lg:hidden" />
-          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col bg-card px-4 py-5 shadow-xl outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left lg:hidden">
-            <div className="flex items-center justify-between px-1">
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col bg-card px-3 py-4 shadow-xl outline-none data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:animate-in data-[state=open]:slide-in-from-left lg:hidden">
+            <div className="flex items-center justify-between">
               <DialogPrimitive.Title asChild>
                 <div>
                   <Brand home={home} />
@@ -276,14 +292,16 @@ export function AppNavigation({
             <DialogPrimitive.Description className="sr-only">
               Main navigation
             </DialogPrimitive.Description>
-            <nav className="mt-7 flex-1 overflow-y-auto" aria-label="Sections">
+            <nav className="mt-6 flex-1 overflow-y-auto" aria-label="Sections">
               <NavLinks items={items} />
             </nav>
-            <UserBlock
-              name={name}
-              roleLabel={roleLabel}
-              onSignOut={onSignOut}
-            />
+            <div className="border-t border-border pt-3">
+              <UserBlock
+                name={name}
+                roleLabel={roleLabel}
+                onSignOut={onSignOut}
+              />
+            </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
