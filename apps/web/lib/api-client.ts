@@ -24,11 +24,16 @@ export function handleSignedOut(): void {
  */
 export async function apiFetch<T>(
   path: string,
-  init: Readonly<{ method?: string; body?: unknown }> = {},
+  init: Readonly<{
+    method?: string;
+    body?: unknown;
+    signal?: AbortSignal;
+  }> = {},
 ): Promise<T> {
   const request: RequestInit = {
     method: init.method ?? "GET",
     credentials: "same-origin",
+    signal: init.signal ?? null,
   };
   if (init.body !== undefined) {
     request.headers = { "content-type": "application/json" };

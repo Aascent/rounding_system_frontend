@@ -9,6 +9,8 @@ import { apiFetch, handleSignedOut } from "@/lib/api-client";
 const WARN_BEFORE_MS = 60 * 1000;
 /** Tell the server about activity at most this often. */
 const PING_INTERVAL_MS = 60 * 1000;
+/** Give up on a session refresh that hangs (e.g. the API is waking up). */
+const PING_TIMEOUT_MS = 20 * 1000;
 const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll"] as const;
 
 /**
@@ -25,11 +27,27 @@ export function IdleWatcher({
   const [now, setNow] = useState(() => Date.now());
   const lastActivity = useRef(Date.now());
   const lastPing = useRef(Date.now());
+  const [staying, setStaying] = useState(false);
+  const [stayFailed, setStayFailed] = useState(false);
 
   async function ping() {
     lastPing.current = Date.now();
-    const session = await apiFetch<SessionResponse>("/auth/session");
+    const session = await apiFetch<SessionResponse>("/auth/session", {
+      signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+    });
     setExpiresAt(Date.parse(session.idleExpiresAt));
+  }
+
+  async function staySignedIn() {
+    setStaying(true);
+    setStayFailed(false);
+    try {
+      await ping();
+    } catch {
+      setStayFailed(true);
+    } finally {
+      setStaying(false);
+    }
   }
 
   useEffect(() => {
@@ -80,12 +98,19 @@ export function IdleWatcher({
           For security you will be signed out in {remaining} second
           {remaining === 1 ? "" : "s"} because of inactivity.
         </p>
+        {stayFailed && (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            Couldn&apos;t reach the server. Please try again.
+          </p>
+        )}
         <div className="mt-5 flex justify-end">
           <Button
             type="button"
-            onClick={() => void ping().catch(() => undefined)}
+            disabled={staying}
+            aria-busy={staying}
+            onClick={() => void staySignedIn()}
           >
-            Stay signed in
+            {staying ? "Staying signed in…" : "Stay signed in"}
           </Button>
         </div>
       </div>
