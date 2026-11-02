@@ -5,6 +5,7 @@ import {
   BarChart3,
   Building2,
   ClipboardList,
+  KeyRound,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -205,6 +206,7 @@ function UserBlock({
   onSignOut: () => void;
   collapsed?: boolean;
 }>) {
+  const pathname = usePathname();
   return (
     <div className="grid gap-1">
       <Tooltip label={`${name} · ${roleLabel}`} disabled={!collapsed}>
@@ -222,6 +224,21 @@ function UserBlock({
             </small>
           </span>
         </div>
+      </Tooltip>
+      <Tooltip label="Change password" disabled={!collapsed}>
+        <Link
+          href="/account/password"
+          aria-current={pathname === "/account/password" ? "page" : undefined}
+          className={cn(
+            ROW,
+            pathname === "/account/password"
+              ? "bg-secondary text-primary-strong"
+              : "text-muted-foreground hover:bg-muted hover:text-primary",
+          )}
+        >
+          <KeyRound className="size-[18px] shrink-0" aria-hidden="true" />
+          <span className={fade(collapsed)}>Change password</span>
+        </Link>
       </Tooltip>
       <Tooltip label="Sign out" disabled={!collapsed}>
         <button

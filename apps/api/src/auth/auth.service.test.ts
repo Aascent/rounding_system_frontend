@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+  type ExecutionContext,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import {
   createTestContext,
+  principal,
   type TestContext,
 } from "../testing/test-context.js";
+import { AllowedBeforePasswordChange } from "./auth.decorators.js";
+import { AuthenticationGuard } from "./auth.guard.js";
+import { SESSION_COOKIE } from "./auth.service.js";
 
 let ctx: TestContext;
 before(async () => {
@@ -98,4 +108,72 @@ void test("repeated failures lock the account for a while", async () => {
   );
   const ok = await login("np@smart-rounding.test");
   assert.equal(ok.session.user.role, "NURSE_PRACTITIONER");
+});
+
+void test("a reset password must be changed before anything else works", async () => {
+  const [user] = await ctx.db.query<{ id: string }>(
+    "SELECT id FROM users WHERE email = 'admin@smart-rounding.test'",
+  );
+  const userId = user!.id;
+  const { temporaryPassword } = await ctx.admin.resetPassword(
+    userId,
+    principal("admin"),
+  );
+  const other = await login("admin@smart-rounding.test", {
+    password: temporaryPassword,
+  });
+  const current = await login("admin@smart-rounding.test", {
+    password: temporaryPassword,
+  });
+  assert.equal(current.session.mustChangePassword, true);
+
+  // The guard only lets marked routes through until the password changes.
+  const resolved = await ctx.auth.resolve(current.token);
+  const guard = new AuthenticationGuard(new Reflector(), ctx.auth);
+  const contextFor = (handler: () => void) =>
+    ({
+      getHandler: () => handler,
+      getClass: () => class {},
+      switchToHttp: () => ({
+        getRequest: () => ({
+          headers: { cookie: `${SESSION_COOKIE}=${current.token}` },
+        }),
+      }),
+    }) as unknown as ExecutionContext;
+  const allowed = () => undefined;
+  AllowedBeforePasswordChange()(allowed, "allowed", {
+    value: allowed,
+  } as PropertyDescriptor);
+  assert.equal(await guard.canActivate(contextFor(allowed)), true);
+  await assert.rejects(
+    guard.canActivate(contextFor(() => undefined)),
+    ForbiddenException,
+  );
+
+  await assert.rejects(
+    ctx.auth.changePassword(
+      resolved.principal,
+      { currentPassword: "wrong", newPassword: "N3w-password!" },
+      {},
+    ),
+    BadRequestException,
+  );
+  await ctx.auth.changePassword(
+    resolved.principal,
+    { currentPassword: temporaryPassword, newPassword: "N3w-password!" },
+    {},
+  );
+  const after = await ctx.auth.resolve(current.token);
+  assert.equal(after.session.mustChangePassword, false, "this session stays");
+  await assert.rejects(ctx.auth.resolve(other.token), UnauthorizedException);
+  await assert.rejects(
+    login("admin@smart-rounding.test", { password: temporaryPassword }),
+    UnauthorizedException,
+  );
+  const fresh = await login("admin@smart-rounding.test", {
+    password: "N3w-password!",
+  });
+  assert.equal(fresh.session.mustChangePassword, false);
+  const changes = await ctx.audit.list({ eventType: "PASSWORD_CHANGE" });
+  assert.deepEqual(changes.map((e) => e.outcome).sort(), ["DENIED", "SUCCESS"]);
 });

@@ -9,6 +9,7 @@ import { usesBackend } from "@/lib/backend";
 import { isUserRole, SESSION_ROLE_COOKIE } from "@/lib/session-cookie";
 import { cn } from "@/lib/utils";
 import { AppNavigation } from "./app-navigation";
+import { PasswordChangeRequired } from "./password-change-required";
 
 const SIDEBAR_KEY = "smart-rounding.sidebar";
 import { IdleWatcher } from "./idle-watcher";
@@ -16,6 +17,8 @@ import { IdleWatcher } from "./idle-watcher";
 export type UserSession = Readonly<{
   name: string;
   role: "PHYSICIAN" | "NURSE_PRACTITIONER" | "ADMIN";
+  /** Signed in with a temporary password that must be replaced first. */
+  mustChangePassword?: boolean;
 }>;
 
 const sessionKey = "smart-rounding.session";
@@ -85,7 +88,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     apiFetch<SessionResponse>("/auth/session")
       .then((current) => {
         if (cancelled) return;
-        const fresh = { name: current.user.name, role: current.user.role };
+        const fresh = {
+          name: current.user.name,
+          role: current.user.role,
+          mustChangePassword: current.mustChangePassword,
+        };
         saveUserSession(fresh);
         setSession(fresh);
         setServerSession(current);
@@ -178,6 +185,22 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       router.replace("/");
     });
   }
+
+  if (session.mustChangePassword)
+    return (
+      <PasswordChangeRequired
+        onSignOut={signOut}
+        onChanged={() => {
+          const updated = { ...session, mustChangePassword: false };
+          saveUserSession(updated);
+          setSession(updated);
+          setServerSession((current) =>
+            current ? { ...current, mustChangePassword: false } : current,
+          );
+          router.replace(session.role === "ADMIN" ? "/admin" : "/provider");
+        }}
+      />
+    );
 
   return (
     <>

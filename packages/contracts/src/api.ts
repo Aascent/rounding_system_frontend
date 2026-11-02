@@ -37,8 +37,33 @@ export const sessionResponseSchema = z.object({
   expiresAt: z.iso.datetime(),
   idleTimeoutMinutes: z.number().int().positive(),
   remember: z.boolean(),
+  /** Signed in with a temporary password: nothing else works until it is changed. */
+  mustChangePassword: z.boolean(),
 });
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+
+/**
+ * Minimum length for a password the user chooses. NIST SP 800-63B's floor;
+ * the practice's actual password policy is still to be confirmed.
+ */
+export const PASSWORD_MIN_LENGTH = 8;
+
+export const changePasswordRequestSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password.").max(200),
+    newPassword: z
+      .string()
+      .min(
+        PASSWORD_MIN_LENGTH,
+        `Use at least ${PASSWORD_MIN_LENGTH} characters.`,
+      )
+      .max(200, "Use at most 200 characters."),
+  })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    message: "Choose a password different from the current one.",
+    path: ["newPassword"],
+  });
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 
 export const createUserRequestSchema = managedUserSchema
   .omit({ id: true, providerId: true })

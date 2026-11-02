@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -9,7 +10,12 @@ import type { SessionResponse, UserRole } from "@smart-rounding/contracts";
 import { AuditService } from "../audit/audit.service.js";
 import type { Environment } from "../config/environment.js";
 import { DATABASE, type Database } from "../database/database.js";
-import { hashToken, newSessionToken, verifyPassword } from "./passwords.js";
+import {
+  hashPassword,
+  hashToken,
+  newSessionToken,
+  verifyPassword,
+} from "./passwords.js";
 import type { AuthenticatedPrincipal } from "./auth.types.js";
 
 export const SESSION_COOKIE = "sr_session";
@@ -30,6 +36,7 @@ type SessionRow = {
   role: UserRole;
   status: string;
   provider_id: string | null;
+  must_change_password: boolean;
 };
 
 export type ResolvedSession = Readonly<{
@@ -85,8 +92,9 @@ export class AuthService {
       status: string;
       password_hash: string;
       locked_until: Date | string | null;
+      must_change_password: boolean;
     }>(
-      "SELECT id, name, email, role, status, password_hash, locked_until FROM users WHERE email = $1",
+      "SELECT id, name, email, role, status, password_hash, locked_until, must_change_password FROM users WHERE email = $1",
       [input.email.toLowerCase()],
     );
     const locked =
@@ -176,6 +184,7 @@ export class AuthService {
         expiresAt: new Date(now + lifetime).toISOString(),
         idleTimeoutMinutes: this.environment.SESSION_IDLE_MINUTES,
         remember: input.remember,
+        mustChangePassword: Boolean(user.must_change_password),
       },
     };
   }
@@ -189,7 +198,7 @@ export class AuthService {
     if (!token) throw new UnauthorizedException("Authentication is required");
     const [row] = await this.db.query<SessionRow>(
       `SELECT s.id, s.user_id, s.remember, s.last_seen_at, s.expires_at, s.revoked_at,
-              u.name, u.email, u.role, u.status, u.provider_id
+              u.name, u.email, u.role, u.status, u.provider_id, u.must_change_password
          FROM sessions s JOIN users u ON u.id = s.user_id
         WHERE s.id = $1`,
       [hashToken(token)],
@@ -221,6 +230,7 @@ export class AuthService {
         role: row.role,
         providerId: row.provider_id,
         sessionId: row.id,
+        mustChangePassword: Boolean(row.must_change_password),
       },
       session: {
         user: {
@@ -235,6 +245,7 @@ export class AuthService {
         expiresAt: new Date(expiresAt).toISOString(),
         idleTimeoutMinutes: this.environment.SESSION_IDLE_MINUTES,
         remember: Boolean(row.remember),
+        mustChangePassword: Boolean(row.must_change_password),
       },
     };
   }
@@ -254,6 +265,54 @@ export class AuthService {
       eventType: "LOGOUT",
       outcome: "SUCCESS",
       summary: "Signed out",
+      ip: client.ip ?? null,
+    });
+  }
+
+  /**
+   * The signed-in user replaces their password (a temporary one after a reset,
+   * or by choice). Their other sessions end; this one stays signed in.
+   */
+  async changePassword(
+    principal: AuthenticatedPrincipal,
+    input: { currentPassword: string; newPassword: string },
+    client: ClientInfo,
+  ): Promise<void> {
+    this.assertEnabled();
+    const [user] = await this.db.query<{ password_hash: string }>(
+      "SELECT password_hash FROM users WHERE id = $1",
+      [principal.subject],
+    );
+    if (
+      !user ||
+      !(await verifyPassword(input.currentPassword, user.password_hash))
+    ) {
+      await this.audit.record({
+        actor: principal.displayName,
+        actorId: principal.subject,
+        eventType: "PASSWORD_CHANGE",
+        outcome: "DENIED",
+        summary: "Password change denied: current password incorrect",
+        ip: client.ip ?? null,
+      });
+      throw new BadRequestException("Your current password is incorrect.");
+    }
+    await this.db.query(
+      `UPDATE users SET password_hash = $2, must_change_password = FALSE,
+              failed_logins = 0, locked_until = NULL, updated_at = now()
+        WHERE id = $1`,
+      [principal.subject, await hashPassword(input.newPassword)],
+    );
+    await this.db.query(
+      "UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL AND id <> $2",
+      [principal.subject, principal.sessionId ?? ""],
+    );
+    await this.audit.record({
+      actor: principal.displayName,
+      actorId: principal.subject,
+      eventType: "PASSWORD_CHANGE",
+      outcome: "SUCCESS",
+      summary: "Changed own password",
       ip: client.ip ?? null,
     });
   }

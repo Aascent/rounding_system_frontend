@@ -18,6 +18,7 @@ import {
   facilitySummarySchema,
   keywordEntrySchema,
   keywordToggleSchema,
+  changePasswordRequestSchema,
   loginRequestSchema,
   ruleStateSchema,
   ruleToggleSchema,
@@ -186,6 +187,15 @@ const paths: Record<string, Partial<Record<Method, Operation>>> = {
       summary: "Current session (counts as activity)",
       tags: ["auth"],
       responses: { "200": json(ref("SessionResponse")), ...errors },
+    }),
+  },
+  "/auth/password": {
+    post: secured({
+      summary:
+        "Change the signed-in user's password (required after a reset; ends their other sessions)",
+      tags: ["auth"],
+      requestBody: body("ChangePasswordRequest"),
+      responses: { "204": { description: "Password changed" }, ...errors },
     }),
   },
   "/auth/logout": {
@@ -505,6 +515,7 @@ export function buildOpenApiDocument(version: string) {
         CreateUserResponse: toSchema(createUserResponseSchema),
         UpdateUserRequest: toSchema(updateUserRequestSchema),
         LoginRequest: toSchema(loginRequestSchema),
+        ChangePasswordRequest: toSchema(changePasswordRequestSchema),
         SessionResponse: toSchema(sessionResponseSchema),
         KeywordEntry: toSchema(keywordEntrySchema),
         CreateKeywordRequest: toSchema(createKeywordRequestSchema),

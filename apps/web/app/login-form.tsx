@@ -101,7 +101,11 @@ export function LoginForm() {
           method: "POST",
           body: { ...values, email },
         });
-        session = { name: result.user.name, role: result.user.role };
+        session = {
+          name: result.user.name,
+          role: result.user.role,
+          mustChangePassword: result.mustChangePassword,
+        };
       } catch (caught) {
         setError(caught instanceof ApiError ? caught.message : INCORRECT);
         return;
@@ -120,7 +124,13 @@ export function LoginForm() {
     }
     rememberEmail(email, values.remember);
     saveUserSession(session);
-    router.push(destinationFor(session.role));
+    // A temporary password must be replaced first; that page loads no data
+    // the API would refuse in the meantime.
+    router.push(
+      session.mustChangePassword
+        ? "/account/password"
+        : destinationFor(session.role),
+    );
   }
 
   return (

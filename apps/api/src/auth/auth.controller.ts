@@ -10,12 +10,13 @@ import {
   Res,
 } from "@nestjs/common";
 import {
+  changePasswordRequestSchema,
   loginRequestSchema,
   type SessionResponse,
 } from "@smart-rounding/contracts";
 import type { Response } from "express";
 import type { Environment } from "../config/environment.js";
-import { Public } from "./auth.decorators.js";
+import { AllowedBeforePasswordChange, Public } from "./auth.decorators.js";
 import { AuthService, SESSION_COOKIE } from "./auth.service.js";
 import type { AuthenticatedRequest } from "./auth.types.js";
 
@@ -66,12 +67,34 @@ export class AuthController {
   }
 
   /** The current session; calling it counts as activity. */
+  @AllowedBeforePasswordChange()
   @Get("session")
   session(@Req() request: AuthenticatedRequest): SessionResponse {
     if (!request.session) throw new Error("Authenticated session missing");
     return request.session;
   }
 
+  /** Replace the signed-in user's password (required after a reset). */
+  @AllowedBeforePasswordChange()
+  @Post("password")
+  @HttpCode(204)
+  async changePassword(
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    const parsed = changePasswordRequestSchema.safeParse(body);
+    if (!parsed.success)
+      throw new BadRequestException(
+        parsed.error.issues[0]?.message ??
+          "Enter your current and new password.",
+      );
+    if (!request.principal) throw new Error("Authenticated principal missing");
+    await this.auth.changePassword(request.principal, parsed.data, {
+      ip: request.ip ?? null,
+    });
+  }
+
+  @AllowedBeforePasswordChange()
   @Post("logout")
   @HttpCode(204)
   async logout(

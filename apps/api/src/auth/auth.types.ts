@@ -8,6 +8,8 @@ export type AuthenticatedPrincipal = Readonly<{
   providerId: string | null;
   /** Hash of the session token (never the token itself). */
   sessionId?: string;
+  /** Signed in with a temporary password that has not been changed yet. */
+  mustChangePassword?: boolean;
 }>;
 
 export type AuthenticatedRequest = Request & {

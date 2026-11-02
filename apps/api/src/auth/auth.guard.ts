@@ -1,6 +1,14 @@
-import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { IS_PUBLIC } from "./auth.decorators.js";
+import {
+  ALLOWED_BEFORE_PASSWORD_CHANGE,
+  IS_PUBLIC,
+} from "./auth.decorators.js";
 import { AuthService, SESSION_COOKIE } from "./auth.service.js";
 import type { AuthenticatedRequest } from "./auth.types.js";
 import { readCookie } from "./cookies.js";
@@ -8,7 +16,9 @@ import { readCookie } from "./cookies.js";
 /**
  * Every route is authenticated unless marked `@Public()`. The session comes
  * from the HttpOnly session cookie and is checked against the database on
- * each request (expiry, idle timeout, revocation, account status).
+ * each request (expiry, idle timeout, revocation, account status). A user
+ * still on a temporary password can only reach routes marked
+ * `@AllowedBeforePasswordChange()`.
  */
 @Injectable()
 export class AuthenticationGuard implements CanActivate {
@@ -31,6 +41,16 @@ export class AuthenticationGuard implements CanActivate {
     );
     request.principal = resolved.principal;
     request.session = resolved.session;
+    if (
+      resolved.session.mustChangePassword &&
+      !this.reflector.getAllAndOverride<boolean>(
+        ALLOWED_BEFORE_PASSWORD_CHANGE,
+        [context.getHandler(), context.getClass()],
+      )
+    )
+      throw new ForbiddenException(
+        "Change your temporary password to continue.",
+      );
     return true;
   }
 }
