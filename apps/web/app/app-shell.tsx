@@ -22,6 +22,8 @@ export type UserSession = Readonly<{
 }>;
 
 const sessionKey = "smart-rounding.session";
+/** Email kept by "Remember me" to prefill the sign-in form; cleared on sign-out. */
+export const REMEMBERED_EMAIL_KEY = "smart-rounding.remembered-email";
 
 /**
  * Persists the session to `localStorage` (read by every client component via
@@ -35,6 +37,7 @@ export function saveUserSession(session: UserSession): void {
 
 export function clearUserSession(): void {
   window.localStorage.removeItem(sessionKey);
+  window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
   document.cookie = `${SESSION_ROLE_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }
 

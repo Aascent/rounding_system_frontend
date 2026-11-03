@@ -12,7 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, apiFetch } from "@/lib/api-client";
 import { usesBackend } from "@/lib/backend";
-import { saveUserSession, type UserSession } from "./app-shell";
+import {
+  REMEMBERED_EMAIL_KEY,
+  saveUserSession,
+  type UserSession,
+} from "./app-shell";
 
 /** Demo-only sign-ins, used when no backend is configured. */
 const demoAccounts = {
@@ -36,7 +40,6 @@ const demoAccounts = {
   { password: string; mfa: string; session: UserSession }
 >;
 
-const REMEMBERED_EMAIL_KEY = "smart-rounding.remembered-email";
 const INCORRECT = "The email, password, or MFA code is incorrect.";
 
 const loginSchema = z.object({

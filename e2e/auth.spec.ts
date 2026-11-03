@@ -22,6 +22,25 @@ test("each role lands on its own dashboard", async ({ page }) => {
   }
 });
 
+test("signing out forgets the remembered email", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#login-email").fill(USERS.physician);
+  await page.locator("#login-password").fill(PASSWORD);
+  await page.locator("#login-mfa").fill("123456");
+  await page.locator("#login-remember").check();
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/provider");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.locator("#login-email")).toHaveValue("");
+  await page.reload();
+  await expect(page.locator("#login-email")).toHaveValue("");
+  expect(
+    await page.evaluate(() =>
+      window.localStorage.getItem("smart-rounding.remembered-email"),
+    ),
+  ).toBeNull();
+});
+
 test("protected pages need a session", async ({ page }) => {
   await page.goto("/provider");
   // Sent back to sign in (with a "session ended" notice).
