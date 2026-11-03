@@ -3,7 +3,7 @@
 import type { SessionResponse } from "@smart-rounding/contracts";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { apiFetch, handleSignedOut } from "@/lib/api-client";
+import { ApiError, apiFetch, handleSignedOut } from "@/lib/api-client";
 
 /** Show the warning this long before the idle timeout. */
 const WARN_BEFORE_MS = 60 * 1000;
@@ -11,6 +11,8 @@ const WARN_BEFORE_MS = 60 * 1000;
 const PING_INTERVAL_MS = 60 * 1000;
 /** Give up on a session refresh that hangs (e.g. the API is waking up). */
 const PING_TIMEOUT_MS = 20 * 1000;
+/** "Stay signed in" retries this many times while the API wakes up. */
+const STAY_ATTEMPTS = 4;
 const ACTIVITY_EVENTS = ["pointerdown", "keydown", "scroll"] as const;
 
 /**
@@ -38,11 +40,24 @@ export function IdleWatcher({
     setExpiresAt(Date.parse(session.idleExpiresAt));
   }
 
+  /**
+   * A hosted API that sleeps when idle can take up to a minute to answer the
+   * first request, so keep trying on network errors and timeouts. A real
+   * answer from the server (e.g. 401: the session already ended) is final.
+   */
   async function staySignedIn() {
     setStaying(true);
     setStayFailed(false);
     try {
-      await ping();
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await ping();
+          return;
+        } catch (caught) {
+          if (caught instanceof ApiError || attempt >= STAY_ATTEMPTS)
+            throw caught;
+        }
+      }
     } catch {
       setStayFailed(true);
     } finally {
@@ -72,16 +87,27 @@ export function IdleWatcher({
     };
   }, []);
 
+  // When the warning appears, wake the API (if it is asleep) without counting
+  // as activity, so "Stay signed in" answers quickly.
+  const warning = expiresAt - now <= WARN_BEFORE_MS;
   useEffect(() => {
-    if (now >= expiresAt) {
+    if (warning)
+      void fetch("/api/v1/health", { cache: "no-store" }).catch(
+        () => undefined,
+      );
+  }, [warning]);
+
+  useEffect(() => {
+    // While "Stay signed in" is waiting, let the server's answer decide.
+    if (now >= expiresAt && !staying) {
       void apiFetch("/auth/logout", { method: "POST" })
         .catch(() => undefined)
         .finally(handleSignedOut);
     }
-  }, [now, expiresAt]);
+  }, [now, expiresAt, staying]);
 
   const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
-  if (expiresAt - now > WARN_BEFORE_MS) return null;
+  if (!warning) return null;
   return (
     <div
       role="alertdialog"
@@ -98,6 +124,11 @@ export function IdleWatcher({
           For security you will be signed out in {remaining} second
           {remaining === 1 ? "" : "s"} because of inactivity.
         </p>
+        {staying && (
+          <p role="status" className="mt-3 text-sm text-muted-foreground">
+            Connecting to the server… this can take up to a minute.
+          </p>
+        )}
         {stayFailed && (
           <p role="alert" className="mt-3 text-sm text-destructive">
             Couldn&apos;t reach the server. Please try again.

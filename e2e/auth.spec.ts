@@ -133,3 +133,36 @@ test("an admin reset forces a new password before anything else", async ({
   await page.goto("/admin/audit");
   await expect(page.getByText("Changed own password").first()).toBeVisible();
 });
+
+test("Stay signed in works with one click while the server wakes up", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await signIn(page, USERS.physician);
+  await expect(page).toHaveURL("/provider");
+  // Idle until the warning (a minute before the 30-minute timeout).
+  await page.clock.fastForward("29:10");
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Are you still there?");
+
+  // The first session refresh fails as if the API were still asleep.
+  let failed = false;
+  await page.route("**/api/v1/auth/session", async (route) => {
+    if (failed) {
+      // The real refresh, with its expiry moved onto the page's fast-forwarded clock.
+      const response = await route.fetch();
+      const body = (await response.json()) as { idleExpiresAt: string };
+      const shifted = Date.parse(body.idleExpiresAt) + (29 * 60 + 10) * 1000;
+      return route.fulfill({
+        response,
+        json: { ...body, idleExpiresAt: new Date(shifted).toISOString() },
+      });
+    }
+    failed = true;
+    return route.abort("timedout");
+  });
+  await dialog.getByRole("button", { name: "Stay signed in" }).click();
+  await expect(dialog).toBeHidden();
+  expect(failed).toBe(true);
+  await expect(page).toHaveURL("/provider");
+});
