@@ -9,7 +9,8 @@ import { redirect } from "next/navigation";
 export async function serverApi<T>(path: string): Promise<T | undefined> {
   const base = process.env.API_BASE_URL?.replace(/\/+$/, "");
   if (!base) throw new Error("API_BASE_URL is not configured");
-  const cookieHeader = (await cookies()).toString();
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.toString();
   const response = await fetch(`${base}/api/v1${path}`, {
     headers: { cookie: cookieHeader },
     cache: "no-store",
@@ -19,7 +20,9 @@ export async function serverApi<T>(path: string): Promise<T | undefined> {
       { cause },
     );
   });
-  if (response.status === 401) redirect("/?expired=1");
+  // "Session ended" only for someone who had a session; otherwise plain sign-in.
+  if (response.status === 401)
+    redirect(cookieStore.has("sr_session") ? "/?expired=1" : "/");
   if (response.status === 403 || response.status === 404) return undefined;
   if (!response.ok)
     throw new Error(`Backend request failed (${response.status})`);

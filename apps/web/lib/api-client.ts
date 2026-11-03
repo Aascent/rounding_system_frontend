@@ -14,8 +14,9 @@ const SESSION_KEY = "smart-rounding.session";
 
 /** Session ended on the server: drop the local copy and go to sign-in. */
 export function handleSignedOut(): void {
+  const hadSession = window.localStorage.getItem(SESSION_KEY) !== null;
   window.localStorage.removeItem(SESSION_KEY);
-  window.location.assign("/?expired=1");
+  window.location.assign(hadSession ? "/?expired=1" : "/");
 }
 
 /**

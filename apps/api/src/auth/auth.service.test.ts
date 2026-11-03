@@ -55,6 +55,7 @@ void test("wrong password, wrong MFA and unknown users get one message", async (
     await assert.rejects(attempt, (e: unknown) => {
       assert.ok(e instanceof UnauthorizedException);
       assert.match(e.message, /email, password, or MFA code is incorrect/);
+      assert.match(e.message, /attempts? left before sign-in is paused/);
       return true;
     });
   const logins = await ctx.audit.list({ eventType: "LOGIN" });
@@ -198,4 +199,41 @@ void test("wrong current passwords lock the account and sign it out", async () =
   await ctx.db.query(
     "UPDATE users SET locked_until = NULL, failed_logins = 0 WHERE email = 'np@smart-rounding.test'",
   );
+});
+
+void test("failed sign-ins count down, then pause, the same for unknown emails", async () => {
+  const messages = async (email: string) => {
+    const seen: string[] = [];
+    for (let i = 0; i < 6; i++)
+      await login(email, { password: "nope" }).catch((e: Error) =>
+        seen.push(e.message),
+      );
+    return seen;
+  };
+  // np@ still has the demo password (admin@ changed it earlier in this file).
+  const real = await messages("np@smart-rounding.test");
+  const unknown = await messages("no-account@smart-rounding.test");
+  assert.deepEqual(real, unknown, "an unknown email is indistinguishable");
+  assert.match(
+    real[0]!,
+    /incorrect. 4 attempts left before sign-in is paused for 15 minutes/,
+  );
+  assert.match(real[3]!, /incorrect. 1 attempt left/);
+  assert.match(
+    real[4]!,
+    /^Too many failed attempts. Sign-in is paused; try again in 15 minutes.$/,
+  );
+  assert.match(real[5]!, /try again in 15 minutes/, "still paused");
+  // Even the right password waits for the pause to end.
+  await assert.rejects(login("np@smart-rounding.test"), /Sign-in is paused/);
+
+  // Once the pause is over the count starts again rather than re-locking at once.
+  await ctx.db.query(
+    "UPDATE users SET locked_until = now() - interval '1 minute' WHERE email = 'np@smart-rounding.test'",
+  );
+  await assert.rejects(
+    login("np@smart-rounding.test", { password: "nope" }),
+    /4 attempts left/,
+  );
+  await login("np@smart-rounding.test");
 });

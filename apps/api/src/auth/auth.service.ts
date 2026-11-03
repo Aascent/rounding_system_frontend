@@ -21,6 +21,10 @@ import type { AuthenticatedPrincipal } from "./auth.types.js";
 export const SESSION_COOKIE = "sr_session";
 
 const MINUTE = 60 * 1000;
+
+/** Failed sign-ins in a row and, once there are too many, when the pause ends (ms). */
+type FailedAttempts = { failures: number; lockedUntil: number | null };
+
 /** Avoid a database write on every request: refresh activity at most this often. */
 const TOUCH_INTERVAL_MS = MINUTE;
 
@@ -51,6 +55,9 @@ export type ClientInfo = Readonly<{
 
 @Injectable()
 export class AuthService {
+  /** Failed sign-ins for emails with no account (see recordUnknownEmailFailure). */
+  private readonly unknownEmailFailures = new Map<string, FailedAttempts>();
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     @Inject("ENVIRONMENT") private readonly environment: Environment,
@@ -108,7 +115,13 @@ export class AuthService {
     const mfaOk = input.mfa === this.environment.DEV_MFA_CODE;
     if (!user || locked || !passwordOk || !mfaOk || user.status !== "ACTIVE") {
       // Count failures; lock the account for a while after too many in a row.
-      if (user && !locked) await this.recordFailedPassword(user.id);
+      // Unknown emails are counted the same way (in memory), so the attempts
+      // left and the pause never reveal whether an account exists.
+      const attempts = user
+        ? locked
+          ? { failures: 0, lockedUntil: new Date(user.locked_until!).getTime() }
+          : await this.recordFailedPassword(user.id)
+        : this.recordUnknownEmailFailure(input.email.toLowerCase());
       await this.audit.record({
         actor: user?.name ?? "Unknown user",
         actorId: user?.id ?? null,
@@ -121,10 +134,8 @@ export class AuthService {
             : "Login denied: incorrect email, password or MFA code",
         ip: client.ip ?? null,
       });
-      // One message for every failure, so it never reveals which part was wrong.
-      throw new UnauthorizedException(
-        "The email, password, or MFA code is incorrect.",
-      );
+      // Never says which part was wrong; only how many tries are left.
+      throw new UnauthorizedException(this.failedSignInMessage(attempts));
     }
 
     const { token, id } = newSessionToken();
@@ -278,7 +289,9 @@ export class AuthService {
     ) {
       // Wrong guesses here count toward the same lockout as sign-in, so an
       // open session cannot be used to guess the password indefinitely.
-      const nowLocked = await this.recordFailedPassword(principal.subject);
+      const nowLocked =
+        (await this.recordFailedPassword(principal.subject)).lockedUntil !==
+        null;
       if (nowLocked) await this.revokeAll(principal.subject);
       await this.audit.record({
         actor: principal.displayName,
@@ -318,22 +331,66 @@ export class AuthService {
 
   /**
    * Count a wrong password; after LOGIN_MAX_ATTEMPTS in a row the account is
-   * locked for LOGIN_LOCK_MINUTES. Returns whether it is now locked.
+   * locked for LOGIN_LOCK_MINUTES. A lock that has run out starts the count
+   * again from zero. Returns the failures so far and the lock, if any.
    */
-  private async recordFailedPassword(userId: string): Promise<boolean> {
-    const [row] = await this.db.query<{ locked: boolean }>(
-      `UPDATE users SET failed_logins = failed_logins + 1,
-              locked_until = CASE WHEN failed_logins + 1 >= $2
-                THEN now() + make_interval(mins => $3) ELSE locked_until END
+  private async recordFailedPassword(userId: string): Promise<FailedAttempts> {
+    const [row] = await this.db.query<{
+      failed_logins: number;
+      locked_until: Date | string | null;
+    }>(
+      `UPDATE users SET
+              failed_logins = (CASE WHEN locked_until <= now() THEN 0 ELSE failed_logins END) + 1,
+              locked_until = CASE
+                WHEN (CASE WHEN locked_until <= now() THEN 0 ELSE failed_logins END) + 1 >= $2
+                THEN now() + make_interval(mins => $3) ELSE NULL END
         WHERE id = $1
-        RETURNING locked_until IS NOT NULL AND locked_until > now() AS locked`,
+        RETURNING failed_logins, locked_until`,
       [
         userId,
         this.environment.LOGIN_MAX_ATTEMPTS,
         this.environment.LOGIN_LOCK_MINUTES,
       ],
     );
-    return row?.locked ?? false;
+    return {
+      failures: row?.failed_logins ?? 0,
+      lockedUntil: row?.locked_until
+        ? new Date(row.locked_until).getTime()
+        : null,
+    };
+  }
+
+  /** The same counting as {@link recordFailedPassword} for an email with no account. */
+  private recordUnknownEmailFailure(email: string): FailedAttempts {
+    const now = Date.now();
+    const previous = this.unknownEmailFailures.get(email);
+    if (previous?.lockedUntil && previous.lockedUntil > now) return previous;
+    const failures =
+      previous && !previous.lockedUntil ? previous.failures + 1 : 1;
+    const next = {
+      failures,
+      lockedUntil:
+        failures >= this.environment.LOGIN_MAX_ATTEMPTS
+          ? now + this.environment.LOGIN_LOCK_MINUTES * MINUTE
+          : null,
+    };
+    // Bounded: an attacker cycling emails cannot grow it without limit.
+    if (this.unknownEmailFailures.size >= 10_000)
+      this.unknownEmailFailures.clear();
+    this.unknownEmailFailures.set(email, next);
+    return next;
+  }
+
+  private failedSignInMessage({ failures, lockedUntil }: FailedAttempts) {
+    if (lockedUntil !== null) {
+      const minutes = Math.max(
+        1,
+        Math.ceil((lockedUntil - Date.now()) / MINUTE),
+      );
+      return `Too many failed attempts. Sign-in is paused; try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+    }
+    const left = Math.max(1, this.environment.LOGIN_MAX_ATTEMPTS - failures);
+    return `The email, password, or MFA code is incorrect. ${left} attempt${left === 1 ? "" : "s"} left before sign-in is paused for ${this.environment.LOGIN_LOCK_MINUTES} minutes.`;
   }
 
   /** End every session of a user (deactivation, password reset). */

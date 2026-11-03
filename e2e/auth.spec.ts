@@ -3,7 +3,9 @@ import { PASSWORD, USERS, expect, signIn, test } from "./helpers";
 test("a wrong password shows one generic error", async ({ page }) => {
   await signIn(page, USERS.physician, "not-the-password");
   await expect(
-    page.getByText("The email, password, or MFA code is incorrect."),
+    page.getByText(
+      "The email, password, or MFA code is incorrect. 4 attempts left before sign-in is paused for 15 minutes.",
+    ),
   ).toBeVisible();
   await expect(page).toHaveURL("/");
 });
@@ -43,11 +45,28 @@ test("signing out forgets the remembered email", async ({ page }) => {
 
 test("protected pages need a session", async ({ page }) => {
   await page.goto("/provider");
-  // Sent back to sign in (with a "session ended" notice).
-  await expect(page).toHaveURL(/:3100\/(\?.*)?$/);
+  // Never signed in: plain sign-in, no "session ended" notice.
+  await expect(page).toHaveURL("/");
   await expect(page.locator("#login-email")).toBeVisible();
+  await expect(page.getByText("Your session ended")).toHaveCount(0);
   const response = await page.request.get("/api/v1/provider/dashboard");
   expect(response.status()).toBe(401);
+});
+
+test("a session that ends on the server says so", async ({ page }) => {
+  await signIn(page, USERS.physician);
+  await expect(page).toHaveURL("/provider");
+  // Simulate expiry/revocation: the browser still sends a cookie the server no longer accepts.
+  await page
+    .context()
+    .addCookies([
+      { name: "sr_session", value: "ended", url: "http://localhost:3100" },
+    ]);
+  await page.goto("/provider/patient-list");
+  await expect(page).toHaveURL("/?expired=1");
+  await expect(
+    page.getByText("Your session ended. Please sign in again."),
+  ).toBeVisible();
 });
 
 test("the server refuses admin data to a nurse practitioner", async ({
