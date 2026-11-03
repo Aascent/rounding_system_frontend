@@ -177,3 +177,25 @@ void test("a reset password must be changed before anything else works", async (
   const changes = await ctx.audit.list({ eventType: "PASSWORD_CHANGE" });
   assert.deepEqual(changes.map((e) => e.outcome).sort(), ["DENIED", "SUCCESS"]);
 });
+
+void test("wrong current passwords lock the account and sign it out", async () => {
+  const first = await login("np@smart-rounding.test");
+  const second = await login("np@smart-rounding.test");
+  const { principal: np } = await ctx.auth.resolve(first.token);
+  const attempt = () =>
+    ctx.auth.changePassword(
+      np,
+      { currentPassword: "wrong", newPassword: "N3w-password!" },
+      {},
+    );
+  for (let i = 1; i < ctx.environment.LOGIN_MAX_ATTEMPTS; i++)
+    await assert.rejects(attempt(), BadRequestException);
+  await assert.rejects(attempt(), UnauthorizedException);
+  for (const token of [first.token, second.token])
+    await assert.rejects(ctx.auth.resolve(token), UnauthorizedException);
+  // Locked: even the right password is refused until the lock expires.
+  await assert.rejects(login("np@smart-rounding.test"), UnauthorizedException);
+  await ctx.db.query(
+    "UPDATE users SET locked_until = NULL, failed_logins = 0 WHERE email = 'np@smart-rounding.test'",
+  );
+});

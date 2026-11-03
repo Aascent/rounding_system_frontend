@@ -16,7 +16,11 @@ import {
 } from "@smart-rounding/contracts";
 import type { Response } from "express";
 import type { Environment } from "../config/environment.js";
-import { AllowedBeforePasswordChange, Public } from "./auth.decorators.js";
+import {
+  AllowedBeforePasswordChange,
+  PasswordAttempt,
+  Public,
+} from "./auth.decorators.js";
 import { AuthService, SESSION_COOKIE } from "./auth.service.js";
 import type { AuthenticatedRequest } from "./auth.types.js";
 
@@ -42,6 +46,7 @@ export class AuthController {
   }
 
   @Public()
+  @PasswordAttempt()
   @Post("login")
   @HttpCode(200)
   async login(
@@ -76,6 +81,7 @@ export class AuthController {
 
   /** Replace the signed-in user's password (required after a reset). */
   @AllowedBeforePasswordChange()
+  @PasswordAttempt()
   @Post("password")
   @HttpCode(204)
   async changePassword(

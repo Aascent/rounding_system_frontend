@@ -17,11 +17,13 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "test": "npm run test --workspace @smart-rounding/api",
-    "typecheck": "npm run build --workspace @smart-rounding/contracts && npm run typecheck --workspace @smart-rounding/api && npm run typecheck --workspace @smart-rounding/web",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+    "typecheck": "npm run build --workspace @smart-rounding/contracts && npm run typecheck --workspace @smart-rounding/api && npm run typecheck --workspace @smart-rounding/web && tsc -p e2e/tsconfig.json",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
+    "test:e2e": "npm run build --workspace @smart-rounding/contracts && npm run build --workspace @smart-rounding/api && playwright test --config e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
     "@types/node": "26.4.1",
     "eslint": "10.0.1",
     "prettier": "3.9.6",

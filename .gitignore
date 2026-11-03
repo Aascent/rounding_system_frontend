@@ -16,3 +16,7 @@ next-env.d.ts
 
 # Embedded development database
 .data/
+
+# Playwright
+test-results/
+playwright-report/

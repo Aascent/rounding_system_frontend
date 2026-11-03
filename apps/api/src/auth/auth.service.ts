@@ -108,18 +108,7 @@ export class AuthService {
     const mfaOk = input.mfa === this.environment.DEV_MFA_CODE;
     if (!user || locked || !passwordOk || !mfaOk || user.status !== "ACTIVE") {
       // Count failures; lock the account for a while after too many in a row.
-      if (user && !locked)
-        await this.db.query(
-          `UPDATE users SET failed_logins = failed_logins + 1,
-                  locked_until = CASE WHEN failed_logins + 1 >= $2
-                    THEN now() + make_interval(mins => $3) ELSE locked_until END
-            WHERE id = $1`,
-          [
-            user.id,
-            this.environment.LOGIN_MAX_ATTEMPTS,
-            this.environment.LOGIN_LOCK_MINUTES,
-          ],
-        );
+      if (user && !locked) await this.recordFailedPassword(user.id);
       await this.audit.record({
         actor: user?.name ?? "Unknown user",
         actorId: user?.id ?? null,
@@ -287,14 +276,24 @@ export class AuthService {
       !user ||
       !(await verifyPassword(input.currentPassword, user.password_hash))
     ) {
+      // Wrong guesses here count toward the same lockout as sign-in, so an
+      // open session cannot be used to guess the password indefinitely.
+      const nowLocked = await this.recordFailedPassword(principal.subject);
+      if (nowLocked) await this.revokeAll(principal.subject);
       await this.audit.record({
         actor: principal.displayName,
         actorId: principal.subject,
         eventType: "PASSWORD_CHANGE",
         outcome: "DENIED",
-        summary: "Password change denied: current password incorrect",
+        summary: nowLocked
+          ? "Password change denied: account locked and signed out after repeated failures"
+          : "Password change denied: current password incorrect",
         ip: client.ip ?? null,
       });
+      if (nowLocked)
+        throw new UnauthorizedException(
+          "Too many incorrect attempts. You have been signed out.",
+        );
       throw new BadRequestException("Your current password is incorrect.");
     }
     await this.db.query(
@@ -315,6 +314,26 @@ export class AuthService {
       summary: "Changed own password",
       ip: client.ip ?? null,
     });
+  }
+
+  /**
+   * Count a wrong password; after LOGIN_MAX_ATTEMPTS in a row the account is
+   * locked for LOGIN_LOCK_MINUTES. Returns whether it is now locked.
+   */
+  private async recordFailedPassword(userId: string): Promise<boolean> {
+    const [row] = await this.db.query<{ locked: boolean }>(
+      `UPDATE users SET failed_logins = failed_logins + 1,
+              locked_until = CASE WHEN failed_logins + 1 >= $2
+                THEN now() + make_interval(mins => $3) ELSE locked_until END
+        WHERE id = $1
+        RETURNING locked_until IS NOT NULL AND locked_until > now() AS locked`,
+      [
+        userId,
+        this.environment.LOGIN_MAX_ATTEMPTS,
+        this.environment.LOGIN_LOCK_MINUTES,
+      ],
+    );
+    return row?.locked ?? false;
   }
 
   /** End every session of a user (deactivation, password reset). */

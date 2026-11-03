@@ -10,3 +10,6 @@ export const AllowedBeforePasswordChange = () =>
   SetMetadata(ALLOWED_BEFORE_PASSWORD_CHANGE, true);
 export const Roles = (...roles: UserRole[]) =>
   SetMetadata(REQUIRED_ROLES, roles);
+export const PASSWORD_ATTEMPT = "passwordAttempt";
+/** A password is checked here: rate-limited per client and account (see rate-limit.ts). */
+export const PasswordAttempt = () => SetMetadata(PASSWORD_ATTEMPT, true);

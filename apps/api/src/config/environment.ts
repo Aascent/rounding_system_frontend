@@ -25,6 +25,20 @@ const environmentSchema = z.object({
   /** Lock an account for LOGIN_LOCK_MINUTES after this many failed sign-ins in a row (placeholder policy). */
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+  /** Requests per minute per client IP, for any route (placeholder). */
+  RATE_LIMIT_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .min(10)
+    .max(100000)
+    .default(600),
+  /** Sign-in / password-change attempts per minute per client and account (placeholder). */
+  PASSWORD_ATTEMPTS_PER_MINUTE: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .default(10),
   /** Mark the session cookie Secure (on by default outside development). */
   COOKIE_SECURE: z
     .enum(["true", "false"])
